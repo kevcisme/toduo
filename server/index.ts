@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 
-const app = express();
+const app = express() as any;
 const port = 3000;
 
 // In-memory data store
@@ -37,6 +37,11 @@ const dataStore = {
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Add root route handler
+app.get('/', (req, res) => {
+  res.json({ message: 'Server is running' });
+});
 
 // Task routes
 app.get('/api/tasks', (req, res) => {

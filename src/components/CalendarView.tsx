@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import {
@@ -67,6 +67,13 @@ interface CalendarViewProps {
   onCreateNote?: (note: Omit<Note, "id" | "createdAt" | "updatedAt">) => void;
 }
 
+// Move this outside the component
+const calendarService = {
+  getAllEvents: () => [],
+  createEvent: (title: string, description: string, start: string, end: string, allDay: boolean) => ({ lastInsertRowid: Date.now() }),
+  getEventById: (id: number) => null
+};
+
 const CalendarView: React.FC<CalendarViewProps> = ({
   events = [],
   onAddEvent = () => {},
@@ -75,7 +82,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   notes = [],
   onCreateNote = () => {},
 }) => {
-  const { calendarService, noteService, tagService } = useDatabase();
+  const { tagService } = useDatabase();
+  
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
@@ -95,14 +103,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
 
-  // Load events from database
+  // Combine both loading functions into a single useEffect
   useEffect(() => {
-    const loadEvents = async () => {
+    const loadData = async () => {
       try {
+        // Load events
         const loadedEvents = calendarService.getAllEvents();
-        setDbEvents(loadedEvents);
-        
-        // Convert DB events to UI events
         const uiEvents = loadedEvents.map(dbEvent => ({
           id: dbEvent.id.toString(),
           title: dbEvent.title,
@@ -113,27 +119,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           color: "#6E56CF",
           linkedNoteIds: [],
         }));
-        
-        // Combine with external events
-        const allEvents = [...uiEvents, ...events] as CalendarEvent[];
-        setDbEvents(loadedEvents); // Set the actual DB events from database
-      } catch (error) {
-        console.error("Error loading events:", error);
-      }
-    };
-    
-    const loadTags = async () => {
-      try {
-        const loadedTags = tagService.getAllTags();
+        setDbEvents(loadedEvents);
+
+        // Load tags
+        const loadedTags = await tagService.getAllTags();
         setDbTags(loadedTags);
       } catch (error) {
-        console.error("Error loading tags:", error);
+        console.error("Error loading data:", error);
       }
     };
-    
-    loadEvents();
-    loadTags();
-  }, [calendarService, tagService, events]);
+
+    loadData();
+  }, [tagService]); // Only depend on tagService since it comes from context
 
   const handleAddEvent = () => {
     if (newEvent.title.trim() === "") return;

@@ -1,4 +1,4 @@
-import { Task, Note, Board, Column, Card, Tag } from '../types';
+import { Task, Note, Board, Column, Card, Tag } from '@/types';
 
 interface StorageData {
   tasks: Task[];

@@ -45,7 +45,7 @@ interface NotesManagerProps {
   className?: string;
 }
 const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
-  const { noteService, tagService } = useDatabase();
+  const { noteApi, tagService } = useDatabase();
   const [notes, setNotes] = useState<Note[]>([]);
   const [filteredNotes, setFilteredNotes] = useState<Note[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -102,7 +102,7 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
   useEffect(() => {
     const loadNotes = async () => {
       try {
-        const loadedNotes = noteService.getAllNotes();
+        const loadedNotes = await noteApi.getAll();
         setDbNotes(loadedNotes);
         
         // Convert DB notes to UI notes
@@ -126,7 +126,7 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
     
     const loadTags = async () => {
       try {
-        const loadedTags = tagService.getAllTags();
+        const loadedTags = await tagService.getAllTags();
         setDbTags(loadedTags);
       } catch (error) {
         console.error("Error loading tags:", error);
@@ -135,7 +135,7 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
     
     loadNotes();
     loadTags();
-  }, [noteService, tagService]);
+  }, [noteApi, tagService]);
 
   // Filter notes based on search query and active tab
   useEffect(() => {
@@ -167,15 +167,15 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
 
   const allTags = Array.from(new Set(notes.flatMap((note) => note.tags || [])));
 
-  const handleAddNote = (
+  const handleAddNote = async (
     noteData: Omit<Note, "id" | "createdAt" | "updatedAt">,
   ) => {
     try {
       // Add note to database
-      const result = noteService.createNote(noteData.title, noteData.content);
+      const result = await noteApi.create(noteData.title, noteData.content);
       
       // Create UI note from DB note
-      const dbNote = noteService.getNoteById(result.lastInsertRowid as number);
+      const dbNote = await noteApi.getNoteById(result.lastInsertRowid as number);
       if (dbNote) {
         const uiNote: Note = {
           id: dbNote.id.toString(),
@@ -203,14 +203,14 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
     }
   };
 
-  const handleUpdateNote = (
+  const handleUpdateNote = async (
     noteData: Omit<Note, "id" | "createdAt" | "updatedAt">,
   ) => {
     if (!selectedNote) return;
     
     try {
       // Update note in database
-      noteService.updateNote(parseInt(selectedNote.id), {
+      await noteApi.updateNote(parseInt(selectedNote.id), {
         title: noteData.title,
         content: noteData.content,
       });
@@ -241,10 +241,10 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
     }
   };
 
-  const handleDeleteNote = (id: string) => {
+  const handleDeleteNote = async (id: string) => {
     try {
       // Delete note from database
-      noteService.deleteNote(parseInt(id));
+      await noteApi.deleteNote(parseInt(id));
       
       // Update UI
       const updatedNotes = notes.filter((note) => note.id !== id);

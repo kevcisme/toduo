@@ -87,11 +87,13 @@ const NoteEditor: React.FC<NoteEditorProps> = ({
   useEffect(() => {
     // If no documents were provided, get all documents
     if (availableDocuments.length === 0) {
-      setDocuments(getAllDocuments());
+      // Use a constant instead of calling a function that could cause re-renders
+      const allDocs = getAllDocuments();
+      setDocuments(allDocs);
     } else {
       setDocuments(availableDocuments);
     }
-  }, [availableDocuments]);
+  }, [availableDocuments.length]); // Only depend on the length of availableDocuments
 
   const [open, setOpen] = useState(false);
 

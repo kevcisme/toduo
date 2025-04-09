@@ -73,7 +73,7 @@ const KanbanBoard = () => {
   useEffect(() => {
     const loadBoards = async () => {
       try {
-        const loadedBoards = kanbanService.getAllBoards();
+        const loadedBoards = await kanbanService.getAllBoards();
         setDbBoards(loadedBoards);
         
         if (loadedBoards.length > 0) {
@@ -86,7 +86,7 @@ const KanbanBoard = () => {
     
     const loadTags = async () => {
       try {
-        const loadedTags = tagService.getAllTags();
+        const loadedTags = await tagService.getAllTags();
         setDbTags(loadedTags);
       } catch (error) {
         console.error("Error loading tags:", error);
@@ -103,13 +103,13 @@ const KanbanBoard = () => {
     
     const loadColumnsAndCards = async () => {
       try {
-        const loadedColumns = kanbanService.getColumnsByBoardId(selectedBoard.id);
+        const loadedColumns = await kanbanService.getColumnsByBoardId(selectedBoard.id);
         setDbColumns(loadedColumns);
         
         // Load cards for each column
         const loadedCards: DBCard[] = [];
         for (const column of loadedColumns) {
-          const columnCards = kanbanService.getCardsByColumnId(column.id);
+          const columnCards = await kanbanService.getCardsByColumnId(column.id);
           loadedCards.push(...columnCards);
         }
         setDbCards(loadedCards);
@@ -214,12 +214,12 @@ const KanbanBoard = () => {
     setColumns(newColumns);
   };
 
-  const handleAddColumn = () => {
+  const handleAddColumn = async () => {
     if (!selectedBoard || newColumnTitle.trim() === "") return;
     
     try {
       // Add column to database
-      const result = kanbanService.createColumn(
+      const result = await kanbanService.createColumn(
         selectedBoard.id,
         newColumnTitle,
         columns.length
@@ -240,12 +240,12 @@ const KanbanBoard = () => {
     }
   };
 
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     if (!selectedColumn || newTask.title.trim() === "") return;
     
     try {
       // Add card to database
-      const result = kanbanService.createCard(
+      const result = await kanbanService.createCard(
         parseInt(selectedColumn.id),
         newTask.title,
         newTask.description,

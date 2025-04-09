@@ -99,7 +99,7 @@ const TaskManager = ({
   useEffect(() => {
     const loadTasks = async () => {
       try {
-        const loadedTasks = await taskApi.getAllTasks();
+        const loadedTasks = await taskApi.getAll();
         setDbTasks(loadedTasks);
         
         // Convert DB tasks to UI tasks
@@ -146,7 +146,7 @@ const TaskManager = ({
     if (!newTask.title.trim()) return;
 
     try {
-      const result = await taskApi.createTask(newTask.title, newTask.description);
+      const result = await taskApi.create(newTask.title, newTask.description);
       const newTaskWithId = {
         id: result.lastInsertRowid.toString(),
         title: newTask.title,
