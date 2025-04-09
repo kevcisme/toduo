@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import {
   ResizablePanelGroup,
@@ -14,6 +14,9 @@ import TaskManager from "./TaskManager";
 import CalendarView from "./CalendarView";
 import KanbanBoard from "./KanbanBoard";
 import NotesManager from "./NotesManager";
+import MetricCard from "./dashboard/MetricCard";
+import QuoteCard from "./dashboard/QuoteCard";
+import RemindersList, { Reminder } from "./dashboard/RemindersList";
 import {
   Menu,
   LayoutDashboard,
@@ -23,13 +26,20 @@ import {
   Settings,
   PanelLeft,
   FileText,
+  TrendingUp,
+  Clock,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
 
 interface DashboardProps {
   className?: string;
 }
 
-const Dashboard = ({ className = "" }: DashboardProps) => {
+const Dashboard = ({
+  className = "",
+  showSidebar = true,
+}: DashboardProps & { showSidebar?: boolean }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeView, setActiveView] = useState("dashboard");
   const [layout, setLayout] = useState([
@@ -53,6 +63,72 @@ const Dashboard = ({ className = "" }: DashboardProps) => {
       visible: true,
     },
   ]);
+
+  // Mock data for dashboard metrics
+  const [metrics, setMetrics] = useState({
+    tasksCompleted: 12,
+    tasksCompletionRate: 75,
+    upcomingDeadlines: 3,
+    streak: 5,
+  });
+
+  // Mock data for reminders
+  const [reminders, setReminders] = useState<Reminder[]>([
+    {
+      id: "1",
+      title: "Complete project proposal",
+      dueDate: "Today, 5:00 PM",
+      priority: "high",
+      completed: false,
+    },
+    {
+      id: "2",
+      title: "Schedule team meeting",
+      dueDate: "Tomorrow, 10:00 AM",
+      priority: "medium",
+      completed: false,
+    },
+    {
+      id: "3",
+      title: "Review quarterly goals",
+      dueDate: "Friday, 3:00 PM",
+      priority: "low",
+      completed: false,
+    },
+  ]);
+
+  // Mock data for quote of the day
+  const [quote, setQuote] = useState({
+    text: "The secret of getting ahead is getting started.",
+    author: "Mark Twain",
+  });
+
+  // Handle completing a reminder
+  const handleCompleteReminder = (id: string) => {
+    setReminders(
+      reminders.map((reminder) =>
+        reminder.id === id
+          ? { ...reminder, completed: !reminder.completed }
+          : reminder,
+      ),
+    );
+
+    // Update metrics when a task is completed
+    const reminder = reminders.find((r) => r.id === id);
+    if (reminder && !reminder.completed) {
+      setMetrics((prev) => ({
+        ...prev,
+        tasksCompleted: prev.tasksCompleted + 1,
+        tasksCompletionRate: Math.min(100, prev.tasksCompletionRate + 2),
+      }));
+    } else if (reminder && reminder.completed) {
+      setMetrics((prev) => ({
+        ...prev,
+        tasksCompleted: Math.max(0, prev.tasksCompleted - 1),
+        tasksCompletionRate: Math.max(0, prev.tasksCompletionRate - 2),
+      }));
+    }
+  };
 
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed);
@@ -78,76 +154,80 @@ const Dashboard = ({ className = "" }: DashboardProps) => {
 
   return (
     <div className={`flex h-screen bg-background ${className}`}>
-      {/* Sidebar */}
-      <div
-        className={`${sidebarCollapsed ? "w-16" : "w-64"} bg-card border-r transition-all duration-300 flex flex-col`}
-      >
-        <div className="p-4 flex items-center justify-between border-b">
-          {!sidebarCollapsed && <h2 className="text-xl font-bold">Todo App</h2>}
-          <Button variant="ghost" size="icon" onClick={toggleSidebar}>
-            <PanelLeft className="h-5 w-5" />
-          </Button>
-        </div>
-
-        <ScrollArea className="flex-1">
-          <div className="p-2">
-            <Button
-              variant={activeView === "dashboard" ? "default" : "ghost"}
-              className={`w-full justify-start mb-1 ${sidebarCollapsed ? "px-2" : "px-4"}`}
-              onClick={() => setActiveView("dashboard")}
-            >
-              <LayoutDashboard className="h-5 w-5 mr-2" />
-              {!sidebarCollapsed && <span>Dashboard</span>}
-            </Button>
-
-            <Button
-              variant={activeView === "tasks" ? "default" : "ghost"}
-              className={`w-full justify-start mb-1 ${sidebarCollapsed ? "px-2" : "px-4"}`}
-              onClick={() => setActiveView("tasks")}
-            >
-              <CheckSquare className="h-5 w-5 mr-2" />
-              {!sidebarCollapsed && <span>Tasks</span>}
-            </Button>
-
-            <Button
-              variant={activeView === "calendar" ? "default" : "ghost"}
-              className={`w-full justify-start mb-1 ${sidebarCollapsed ? "px-2" : "px-4"}`}
-              onClick={() => setActiveView("calendar")}
-            >
-              <Calendar className="h-5 w-5 mr-2" />
-              {!sidebarCollapsed && <span>Calendar</span>}
-            </Button>
-
-            <Button
-              variant={activeView === "kanban" ? "default" : "ghost"}
-              className={`w-full justify-start mb-1 ${sidebarCollapsed ? "px-2" : "px-4"}`}
-              onClick={() => setActiveView("kanban")}
-            >
-              <Kanban className="h-5 w-5 mr-2" />
-              {!sidebarCollapsed && <span>Kanban</span>}
-            </Button>
-
-            <Button
-              variant={activeView === "notes" ? "default" : "ghost"}
-              className={`w-full justify-start mb-1 ${sidebarCollapsed ? "px-2" : "px-4"}`}
-              onClick={() => setActiveView("notes")}
-            >
-              <FileText className="h-5 w-5 mr-2" />
-              {!sidebarCollapsed && <span>Notes</span>}
+      {/* Sidebar - only shown when showSidebar prop is true */}
+      {showSidebar && (
+        <div
+          className={`${sidebarCollapsed ? "w-16" : "w-64"} bg-card border-r transition-all duration-300 flex flex-col`}
+        >
+          <div className="p-4 flex items-center justify-between border-b">
+            {!sidebarCollapsed && (
+              <h2 className="text-xl font-bold">Todo App</h2>
+            )}
+            <Button variant="ghost" size="icon" onClick={toggleSidebar}>
+              <PanelLeft className="h-5 w-5" />
             </Button>
           </div>
-        </ScrollArea>
 
-        <div className="p-4 border-t">
-          <Button
-            variant="ghost"
-            className={`w-full justify-start ${sidebarCollapsed ? "px-2" : "px-4"}`}
-          >
-            <Settings className="h-5 w-5 mr-2" />
-            {!sidebarCollapsed && <span>Settings</span>}
-          </Button>
+          <ScrollArea className="flex-1">
+            <div className="p-2">
+              <Button
+                variant={activeView === "dashboard" ? "default" : "ghost"}
+                className={`w-full justify-start mb-1 ${sidebarCollapsed ? "px-2" : "px-4"}`}
+                onClick={() => setActiveView("dashboard")}
+              >
+                <LayoutDashboard className="h-5 w-5 mr-2" />
+                {!sidebarCollapsed && <span>Dashboard</span>}
+              </Button>
+
+              <Button
+                variant={activeView === "tasks" ? "default" : "ghost"}
+                className={`w-full justify-start mb-1 ${sidebarCollapsed ? "px-2" : "px-4"}`}
+                onClick={() => setActiveView("tasks")}
+              >
+                <CheckSquare className="h-5 w-5 mr-2" />
+                {!sidebarCollapsed && <span>Tasks</span>}
+              </Button>
+
+              <Button
+                variant={activeView === "calendar" ? "default" : "ghost"}
+                className={`w-full justify-start mb-1 ${sidebarCollapsed ? "px-2" : "px-4"}`}
+                onClick={() => setActiveView("calendar")}
+              >
+                <Calendar className="h-5 w-5 mr-2" />
+                {!sidebarCollapsed && <span>Calendar</span>}
+              </Button>
+
+              <Button
+                variant={activeView === "kanban" ? "default" : "ghost"}
+                className={`w-full justify-start mb-1 ${sidebarCollapsed ? "px-2" : "px-4"}`}
+                onClick={() => setActiveView("kanban")}
+              >
+                <Kanban className="h-5 w-5 mr-2" />
+                {!sidebarCollapsed && <span>Kanban</span>}
+              </Button>
+
+              <Button
+                variant={activeView === "notes" ? "default" : "ghost"}
+                className={`w-full justify-start mb-1 ${sidebarCollapsed ? "px-2" : "px-4"}`}
+                onClick={() => setActiveView("notes")}
+              >
+                <FileText className="h-5 w-5 mr-2" />
+                {!sidebarCollapsed && <span>Notes</span>}
+              </Button>
+            </div>
+          </ScrollArea>
+
+          <div className="p-4 border-t">
+            <Button
+              variant="ghost"
+              className={`w-full justify-start ${sidebarCollapsed ? "px-2" : "px-4"}`}
+            >
+              <Settings className="h-5 w-5 mr-2" />
+              {!sidebarCollapsed && <span>Settings</span>}
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Main Content */}
       <div className="flex-1 overflow-hidden">
@@ -163,6 +243,49 @@ const Dashboard = ({ className = "" }: DashboardProps) => {
               </div>
             </div>
 
+            {/* Metrics Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <MetricCard
+                title="Tasks Completed"
+                value={metrics.tasksCompleted}
+                icon={<CheckCircle className="h-5 w-5 text-primary" />}
+                trend={{ value: 12, isPositive: true }}
+              />
+              <MetricCard
+                title="Completion Rate"
+                value={`${metrics.tasksCompletionRate}%`}
+                icon={<TrendingUp className="h-5 w-5 text-primary" />}
+                description="Based on last 30 days"
+              />
+              <MetricCard
+                title="Upcoming Deadlines"
+                value={metrics.upcomingDeadlines}
+                icon={<Clock className="h-5 w-5 text-primary" />}
+                description="Due in the next 48 hours"
+              />
+              <MetricCard
+                title="Current Streak"
+                value={`${metrics.streak} days`}
+                icon={<AlertCircle className="h-5 w-5 text-primary" />}
+                description="Keep it going!"
+              />
+            </div>
+
+            {/* Reminders and Quote Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+              <div className="lg:col-span-2">
+                <RemindersList
+                  reminders={reminders}
+                  onComplete={handleCompleteReminder}
+                />
+              </div>
+              <div>
+                <QuoteCard quote={quote.text} author={quote.author} />
+              </div>
+            </div>
+
+            {/* Components Section */}
+            <h2 className="text-xl font-semibold mb-4">Your Workspace</h2>
             <DragDropContext onDragEnd={handleDragEnd}>
               <Droppable
                 droppableId="dashboard-components"
@@ -176,7 +299,7 @@ const Dashboard = ({ className = "" }: DashboardProps) => {
                   >
                     <ResizablePanelGroup
                       direction="vertical"
-                      className="min-h-[800px]"
+                      className="min-h-[600px]"
                     >
                       {layout.map(
                         (item, index) =>

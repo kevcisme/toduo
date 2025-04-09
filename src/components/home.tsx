@@ -98,7 +98,7 @@ export default function Home() {
 
         {/* Content Area */}
         <main className="flex-1 overflow-auto p-4">
-          {activeView === "dashboard" && <Dashboard />}
+          {activeView === "dashboard" && <Dashboard showSidebar={false} />}
 
           {activeView === "tasks" && (
             <div className="grid gap-4">
