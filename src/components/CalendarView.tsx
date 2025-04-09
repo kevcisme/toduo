@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,6 +44,8 @@ import {
   Search,
 } from "lucide-react";
 import NoteEditor, { Note } from "./NoteEditor";
+import { useDatabase } from "../contexts/DatabaseContext";
+import { CalendarEvent as DBCalendarEvent, Tag as DBTag } from "../db/models";
 
 interface CalendarEvent {
   id: string;
@@ -66,73 +68,120 @@ interface CalendarViewProps {
 }
 
 const CalendarView: React.FC<CalendarViewProps> = ({
-  events = [
-    {
-      id: "1",
-      title: "Team Meeting",
-      description: "Weekly team sync",
-      start: new Date(new Date().setHours(10, 0, 0, 0)),
-      end: new Date(new Date().setHours(11, 0, 0, 0)),
-      source: "google",
-      color: "#4285F4",
-      linkedNoteIds: ["2"],
-    },
-    {
-      id: "2",
-      title: "Lunch with Client",
-      description: "Discuss project requirements",
-      start: new Date(new Date().setHours(12, 30, 0, 0)),
-      end: new Date(new Date().setHours(13, 30, 0, 0)),
-      source: "outlook",
-      color: "#0078D4",
-      linkedNoteIds: [],
-    },
-    {
-      id: "3",
-      title: "Project Review",
-      start: new Date(new Date().setHours(15, 0, 0, 0)),
-      end: new Date(new Date().setHours(16, 0, 0, 0)),
-      source: "local",
-      color: "#6E56CF",
-      linkedNoteIds: [],
-    },
-  ],
+  events = [],
   onAddEvent = () => {},
   onConnectCalendar = () => {},
   onRefreshCalendar = () => {},
-  notes = [
-    {
-      id: "1",
-      title: "Project Ideas",
-      content:
-        "- Create a personal dashboard\n- Build a recipe app\n- Learn GraphQL",
-      createdAt: new Date(2023, 5, 10),
-      updatedAt: new Date(2023, 5, 15),
-      tags: ["projects", "ideas"],
-    },
-    {
-      id: "2",
-      title: "Meeting Notes: Team Sync",
-      content: "Discussed project timeline and assigned tasks to team members.",
-      createdAt: new Date(2023, 5, 12),
-      updatedAt: new Date(2023, 5, 12),
-      linkedTaskIds: ["1"],
-      linkedEventIds: ["1"],
-      tags: ["meeting", "team"],
-    },
-  ],
+  notes = [],
   onCreateNote = () => {},
 }) => {
-  const [date, setDate] = useState<Date | undefined>(new Date());
-  const [view, setView] = useState<"day" | "week" | "month">("day");
-  const [newEventOpen, setNewEventOpen] = useState(false);
-  const [newEvent, setNewEvent] = useState({
+  const { calendarService, noteService, tagService } = useDatabase();
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const [isLinkNoteOpen, setIsLinkNoteOpen] = useState(false);
+  const [isCreateNoteOpen, setIsCreateNoteOpen] = useState(false);
+  const [newEvent, setNewEvent] = useState<Omit<CalendarEvent, "id">>({
     title: "",
     description: "",
     start: new Date(),
     end: new Date(new Date().getTime() + 60 * 60 * 1000), // 1 hour later
-    source: "local" as const,
+    source: "local",
+    color: "#6E56CF",
+    linkedNoteIds: [],
   });
+  const [dbEvents, setDbEvents] = useState<DBCalendarEvent[]>([]);
+  const [dbTags, setDbTags] = useState<DBTag[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
+
+  // Load events from database
+  useEffect(() => {
+    const loadEvents = async () => {
+      try {
+        const loadedEvents = calendarService.getAllEvents();
+        setDbEvents(loadedEvents);
+        
+        // Convert DB events to UI events
+        const uiEvents = loadedEvents.map(dbEvent => ({
+          id: dbEvent.id.toString(),
+          title: dbEvent.title,
+          description: dbEvent.description || "",
+          start: new Date(dbEvent.start_time),
+          end: new Date(dbEvent.end_time),
+          source: "local" as const,
+          color: "#6E56CF",
+          linkedNoteIds: [],
+        }));
+        
+        // Combine with external events
+        const allEvents = [...uiEvents, ...events] as CalendarEvent[];
+        setDbEvents(loadedEvents); // Set the actual DB events from database
+      } catch (error) {
+        console.error("Error loading events:", error);
+      }
+    };
+    
+    const loadTags = async () => {
+      try {
+        const loadedTags = tagService.getAllTags();
+        setDbTags(loadedTags);
+      } catch (error) {
+        console.error("Error loading tags:", error);
+      }
+    };
+    
+    loadEvents();
+    loadTags();
+  }, [calendarService, tagService, events]);
+
+  const handleAddEvent = () => {
+    if (newEvent.title.trim() === "") return;
+    
+    try {
+      // Add event to database
+      const result = calendarService.createEvent(
+        newEvent.title,
+        newEvent.description,
+        newEvent.start.toISOString(),
+        newEvent.end.toISOString(),
+        false // Not all day by default
+      );
+      
+      // Create UI event from DB event
+      const dbEvent = calendarService.getEventById(result.lastInsertRowid as number);
+      if (dbEvent) {
+        const uiEvent: CalendarEvent = {
+          id: dbEvent.id.toString(),
+          title: dbEvent.title,
+          description: dbEvent.description || "",
+          start: new Date(dbEvent.start_time),
+          end: new Date(dbEvent.end_time),
+          source: "local" as const,
+          color: "#6E56CF",
+          linkedNoteIds: [],
+        };
+        
+        setDbEvents([...dbEvents, dbEvent]);
+      }
+      
+      setNewEvent({
+        title: "",
+        description: "",
+        start: new Date(),
+        end: new Date(new Date().getTime() + 60 * 60 * 1000),
+        source: "local",
+        color: "#6E56CF",
+        linkedNoteIds: [],
+      });
+      setIsAddEventOpen(false);
+    } catch (error) {
+      console.error("Error adding event:", error);
+    }
+  };
+
+  const [view, setView] = useState<"day" | "week" | "month">("day");
+  const [newEventOpen, setNewEventOpen] = useState(false);
   const [showLinkNotesDialog, setShowLinkNotesDialog] = useState(false);
   const [selectedEventForNotes, setSelectedEventForNotes] =
     useState<CalendarEvent | null>(null);
@@ -143,27 +192,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   // Filter events for the selected date
   const filteredEvents = events.filter((event) => {
-    if (!date) return false;
+    if (!selectedDate) return false;
 
     const eventDate = new Date(event.start);
     return (
-      eventDate.getDate() === date.getDate() &&
-      eventDate.getMonth() === date.getMonth() &&
-      eventDate.getFullYear() === date.getFullYear()
+      eventDate.getDate() === selectedDate.getDate() &&
+      eventDate.getMonth() === selectedDate.getMonth() &&
+      eventDate.getFullYear() === selectedDate.getFullYear()
     );
   });
-
-  const handleAddEvent = () => {
-    onAddEvent(newEvent);
-    setNewEventOpen(false);
-    setNewEvent({
-      title: "",
-      description: "",
-      start: new Date(),
-      end: new Date(new Date().getTime() + 60 * 60 * 1000),
-      source: "local",
-    });
-  };
 
   const handleLinkNote = (eventId: string, noteId: string) => {
     // This would typically update the state and/or call an API
@@ -232,7 +269,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   // Find free time blocks
   const getFreeTimeBlocks = () => {
-    if (!date || filteredEvents.length === 0) return [];
+    if (!selectedDate || filteredEvents.length === 0) return [];
 
     // Sort events by start time
     const sortedEvents = [...filteredEvents].sort(
@@ -240,10 +277,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     );
 
     const freeBlocks = [];
-    let lastEndTime = new Date(date);
+    let lastEndTime = new Date(selectedDate);
     lastEndTime.setHours(9, 0, 0, 0); // Start day at 9 AM
 
-    const endOfDay = new Date(date);
+    const endOfDay = new Date(selectedDate);
     endOfDay.setHours(17, 0, 0, 0); // End day at 5 PM
 
     for (const event of sortedEvents) {
@@ -284,7 +321,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Dialog open={newEventOpen} onOpenChange={setNewEventOpen}>
+          <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
             <DialogTrigger asChild>
               <Button size="sm">
                 <PlusIcon className="h-4 w-4 mr-2" />
@@ -353,7 +390,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               <DialogFooter>
                 <Button
                   variant="outline"
-                  onClick={() => setNewEventOpen(false)}
+                  onClick={() => setIsAddEventOpen(false)}
                 >
                   Cancel
                 </Button>
@@ -369,8 +406,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             <div className="mb-4">
               <Calendar
                 mode="single"
-                selected={date}
-                onSelect={setDate}
+                selected={selectedDate}
+                onSelect={setSelectedDate}
                 className="rounded-md border"
               />
             </div>
@@ -467,7 +504,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 </TabsList>
               </Tabs>
               <div className="text-sm font-medium">
-                {date?.toLocaleDateString(undefined, {
+                {selectedDate?.toLocaleDateString(undefined, {
                   weekday: "long",
                   month: "long",
                   day: "numeric",

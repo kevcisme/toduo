@@ -1,5 +1,7 @@
-import React, { useState } from "react";
-import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
+import React, { useState, useEffect } from "react";
+import DragDropContextWrapper from "./DragDropContextWrapper";
+import DroppableWrapper from "./DroppableWrapper";
+import DraggableWrapper from "./DraggableWrapper";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +29,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useDatabase } from "../contexts/DatabaseContext";
+import { KanbanBoard as DBBoard, KanbanColumn as DBColumn, KanbanCard as DBCard, Tag as DBTag } from "../db/models";
 
 interface Task {
   id: string;
@@ -44,184 +48,251 @@ interface Column {
 }
 
 const KanbanBoard = () => {
-  // Default columns and sample tasks
-  const [columns, setColumns] = useState<Column[]>([
-    {
-      id: "todo",
-      title: "To Do",
-      tasks: [
-        {
-          id: "task-1",
-          title: "Research project requirements",
-          description:
-            "Gather all necessary information for the upcoming project",
-          priority: "high",
-          dueDate: "2023-06-15",
-          labels: ["research", "planning"],
-        },
-        {
-          id: "task-2",
-          title: "Update documentation",
-          description: "Review and update existing documentation",
-          priority: "medium",
-          dueDate: "2023-06-20",
-          labels: ["documentation"],
-        },
-      ],
-    },
-    {
-      id: "in-progress",
-      title: "In Progress",
-      tasks: [
-        {
-          id: "task-3",
-          title: "Design user interface",
-          description: "Create wireframes and mockups for the new feature",
-          priority: "high",
-          dueDate: "2023-06-10",
-          labels: ["design", "ui"],
-        },
-      ],
-    },
-    {
-      id: "done",
-      title: "Done",
-      tasks: [
-        {
-          id: "task-4",
-          title: "Setup development environment",
-          description: "Install and configure necessary tools",
-          priority: "low",
-          dueDate: "2023-06-05",
-          labels: ["setup", "dev"],
-        },
-      ],
-    },
-  ]);
-
-  // State for new column dialog
-  const [isNewColumnDialogOpen, setIsNewColumnDialogOpen] = useState(false);
+  const { kanbanService, tagService } = useDatabase();
+  const [columns, setColumns] = useState<Column[]>([]);
+  const [dbBoards, setDbBoards] = useState<DBBoard[]>([]);
+  const [dbColumns, setDbColumns] = useState<DBColumn[]>([]);
+  const [dbCards, setDbCards] = useState<DBCard[]>([]);
+  const [dbTags, setDbTags] = useState<DBTag[]>([]);
+  const [selectedBoard, setSelectedBoard] = useState<DBBoard | null>(null);
+  const [isAddColumnOpen, setIsAddColumnOpen] = useState(false);
+  const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [newColumnTitle, setNewColumnTitle] = useState("");
-
-  // State for new task dialog
-  const [isNewTaskDialogOpen, setIsNewTaskDialogOpen] = useState(false);
-  const [newTaskColumnId, setNewTaskColumnId] = useState("");
   const [newTask, setNewTask] = useState<Omit<Task, "id">>({
     title: "",
     description: "",
     priority: "medium",
-    dueDate: "",
     labels: [],
   });
+  const [selectedColumn, setSelectedColumn] = useState<Column | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [labelFilter, setLabelFilter] = useState<string>("all");
 
-  // State for task filter
-  const [filterPriority, setFilterPriority] = useState<string>("all");
-  const [filterLabel, setFilterLabel] = useState<string>("all");
+  // Load boards from database
+  useEffect(() => {
+    const loadBoards = async () => {
+      try {
+        const loadedBoards = kanbanService.getAllBoards();
+        setDbBoards(loadedBoards);
+        
+        if (loadedBoards.length > 0) {
+          setSelectedBoard(loadedBoards[0]);
+        }
+      } catch (error) {
+        console.error("Error loading boards:", error);
+      }
+    };
+    
+    const loadTags = async () => {
+      try {
+        const loadedTags = tagService.getAllTags();
+        setDbTags(loadedTags);
+      } catch (error) {
+        console.error("Error loading tags:", error);
+      }
+    };
+    
+    loadBoards();
+    loadTags();
+  }, [kanbanService, tagService]);
 
-  // Handle drag and drop
+  // Load columns and cards when a board is selected
+  useEffect(() => {
+    if (!selectedBoard) return;
+    
+    const loadColumnsAndCards = async () => {
+      try {
+        const loadedColumns = kanbanService.getColumnsByBoardId(selectedBoard.id);
+        setDbColumns(loadedColumns);
+        
+        // Load cards for each column
+        const loadedCards: DBCard[] = [];
+        for (const column of loadedColumns) {
+          const columnCards = kanbanService.getCardsByColumnId(column.id);
+          loadedCards.push(...columnCards);
+        }
+        setDbCards(loadedCards);
+        
+        // Convert to UI format
+        const uiColumns: Column[] = loadedColumns.map(column => {
+          const columnCards = loadedCards.filter(card => card.column_id === column.id);
+          return {
+            id: column.id.toString(),
+            title: column.title,
+            tasks: columnCards.map(card => ({
+              id: card.id.toString(),
+              title: card.title,
+              description: card.description || "",
+              priority: "medium" as const, // Default priority
+              labels: [],
+            })),
+          };
+        });
+        
+        setColumns(uiColumns);
+      } catch (error) {
+        console.error("Error loading columns and cards:", error);
+      }
+    };
+    
+    loadColumnsAndCards();
+  }, [selectedBoard, kanbanService]);
+
   const onDragEnd = (result: any) => {
-    const { destination, source, draggableId } = result;
+    const { destination, source, draggableId, type } = result;
 
-    // If there's no destination or the item was dropped back to its original position
+    // If dropped outside a droppable area
+    if (!destination) return;
+
+    // If dropped in the same position
     if (
-      !destination ||
-      (destination.droppableId === source.droppableId &&
-        destination.index === source.index)
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
     ) {
       return;
     }
 
-    // Find the source and destination columns
-    const sourceColumn = columns.find((col) => col.id === source.droppableId);
+    // If dragging a column
+    if (type === "column") {
+      const newColumns = Array.from(columns);
+      const [removed] = newColumns.splice(source.index, 1);
+      newColumns.splice(destination.index, 0, removed);
+      
+      // Update column positions in database
+      newColumns.forEach((column, index) => {
+        kanbanService.updateColumn(parseInt(column.id), { position: index });
+      });
+      
+      setColumns(newColumns);
+      return;
+    }
+
+    // If dragging a task
+    const sourceColumn = columns.find(
+      (col) => col.id === source.droppableId
+    );
     const destColumn = columns.find(
-      (col) => col.id === destination.droppableId,
+      (col) => col.id === destination.droppableId
     );
 
     if (!sourceColumn || !destColumn) return;
 
-    // Create new arrays to avoid mutating state directly
-    const newColumns = [...columns];
-    const sourceColumnIndex = newColumns.findIndex(
-      (col) => col.id === source.droppableId,
-    );
-    const destColumnIndex = newColumns.findIndex(
-      (col) => col.id === destination.droppableId,
-    );
+    const sourceTasks = Array.from(sourceColumn.tasks);
+    const destTasks =
+      source.droppableId === destination.droppableId
+        ? sourceTasks
+        : Array.from(destColumn.tasks);
 
-    // Find the task being moved
-    const task = sourceColumn.tasks.find((task) => task.id === draggableId);
-    if (!task) return;
+    const [removed] = sourceTasks.splice(source.index, 1);
+    destTasks.splice(destination.index, 0, removed);
 
-    // Remove task from source column
-    newColumns[sourceColumnIndex] = {
-      ...sourceColumn,
-      tasks: sourceColumn.tasks.filter((task) => task.id !== draggableId),
-    };
-
-    // Add task to destination column
-    const newTasks = [...destColumn.tasks];
-    newTasks.splice(destination.index, 0, task);
-    newColumns[destColumnIndex] = {
-      ...destColumn,
-      tasks: newTasks,
-    };
-
-    setColumns(newColumns);
-  };
-
-  // Add a new column
-  const handleAddColumn = () => {
-    if (newColumnTitle.trim() === "") return;
-
-    const newColumn: Column = {
-      id: `column-${Date.now()}`,
-      title: newColumnTitle,
-      tasks: [],
-    };
-
-    setColumns([...columns, newColumn]);
-    setNewColumnTitle("");
-    setIsNewColumnDialogOpen(false);
-  };
-
-  // Add a new task
-  const handleAddTask = () => {
-    if (newTask.title.trim() === "" || !newTaskColumnId) return;
-
-    const task: Task = {
-      id: `task-${Date.now()}`,
-      ...newTask,
-    };
-
-    const newColumns = columns.map((column) => {
-      if (column.id === newTaskColumnId) {
+    const newColumns = columns.map((col) => {
+      if (col.id === source.droppableId) {
         return {
-          ...column,
-          tasks: [...column.tasks, task],
+          ...col,
+          tasks: sourceTasks,
         };
       }
-      return column;
+      if (col.id === destination.droppableId) {
+        return {
+          ...col,
+          tasks: destTasks,
+        };
+      }
+      return col;
     });
-
+    
+    // Update card positions in database
+    destTasks.forEach((task, index) => {
+      kanbanService.updateCard(parseInt(task.id), { 
+        column_id: parseInt(destination.droppableId),
+        position: index 
+      });
+    });
+    
     setColumns(newColumns);
-    setNewTask({
-      title: "",
-      description: "",
-      priority: "medium",
-      dueDate: "",
-      labels: [],
-    });
-    setIsNewTaskDialogOpen(false);
+  };
+
+  const handleAddColumn = () => {
+    if (!selectedBoard || newColumnTitle.trim() === "") return;
+    
+    try {
+      // Add column to database
+      const result = kanbanService.createColumn(
+        selectedBoard.id,
+        newColumnTitle,
+        columns.length
+      );
+      
+      // Create UI column
+      const newColumn: Column = {
+        id: result.lastInsertRowid.toString(),
+        title: newColumnTitle,
+        tasks: [],
+      };
+      
+      setColumns([...columns, newColumn]);
+      setNewColumnTitle("");
+      setIsAddColumnOpen(false);
+    } catch (error) {
+      console.error("Error adding column:", error);
+    }
+  };
+
+  const handleAddTask = () => {
+    if (!selectedColumn || newTask.title.trim() === "") return;
+    
+    try {
+      // Add card to database
+      const result = kanbanService.createCard(
+        parseInt(selectedColumn.id),
+        newTask.title,
+        newTask.description,
+        selectedColumn.tasks.length
+      );
+      
+      // Create UI task
+      const newTaskItem: Task = {
+        id: result.lastInsertRowid.toString(),
+        title: newTask.title,
+        description: newTask.description,
+        priority: newTask.priority,
+        labels: newTask.labels,
+      };
+      
+      // Update UI
+      const updatedColumns = columns.map((col) => {
+        if (col.id === selectedColumn.id) {
+          return {
+            ...col,
+            tasks: [...col.tasks, newTaskItem],
+          };
+        }
+        return col;
+      });
+      
+      setColumns(updatedColumns);
+      setNewTask({
+        title: "",
+        description: "",
+        priority: "medium",
+        labels: [],
+      });
+      setIsAddTaskOpen(false);
+    } catch (error) {
+      console.error("Error adding task:", error);
+    }
   };
 
   // Filter tasks based on priority and label
   const getFilteredTasks = (tasks: Task[]) => {
     return tasks.filter((task) => {
       const priorityMatch =
-        filterPriority === "all" || task.priority === filterPriority;
+        priorityFilter === "all" || task.priority === priorityFilter;
       const labelMatch =
-        filterLabel === "all" ||
-        (task.labels && task.labels.includes(filterLabel));
+        labelFilter === "all" ||
+        (task.labels && task.labels.includes(labelFilter));
       return priorityMatch && labelMatch;
     });
   };
@@ -261,7 +332,7 @@ const KanbanBoard = () => {
         <div className="flex space-x-4">
           {/* Filter by priority */}
           <div>
-            <Select value={filterPriority} onValueChange={setFilterPriority}>
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Filter by priority" />
               </SelectTrigger>
@@ -276,7 +347,7 @@ const KanbanBoard = () => {
 
           {/* Filter by label */}
           <div>
-            <Select value={filterLabel} onValueChange={setFilterLabel}>
+            <Select value={labelFilter} onValueChange={setLabelFilter}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Filter by label" />
               </SelectTrigger>
@@ -293,8 +364,8 @@ const KanbanBoard = () => {
 
           {/* Add new column button */}
           <Dialog
-            open={isNewColumnDialogOpen}
-            onOpenChange={setIsNewColumnDialogOpen}
+            open={isAddColumnOpen}
+            onOpenChange={setIsAddColumnOpen}
           >
             <DialogTrigger asChild>
               <Button variant="outline">
@@ -329,7 +400,7 @@ const KanbanBoard = () => {
 
       {/* Kanban board */}
       <div className="flex-1 overflow-x-auto">
-        <DragDropContext onDragEnd={onDragEnd}>
+        <DragDropContextWrapper onDragEnd={onDragEnd}>
           <div className="flex space-x-4 h-full">
             {columns.map((column) => (
               <div key={column.id} className="flex-shrink-0 w-80">
@@ -339,11 +410,11 @@ const KanbanBoard = () => {
                       <CardTitle>{column.title}</CardTitle>
                       <Dialog
                         open={
-                          isNewTaskDialogOpen && newTaskColumnId === column.id
+                          isAddTaskOpen && selectedColumn?.id === column.id
                         }
                         onOpenChange={(open) => {
-                          setIsNewTaskDialogOpen(open);
-                          if (open) setNewTaskColumnId(column.id);
+                          setIsAddTaskOpen(open);
+                          if (open) setSelectedColumn(column);
                         }}
                       >
                         <DialogTrigger asChild>
@@ -471,7 +542,7 @@ const KanbanBoard = () => {
                     </div>
                   </CardHeader>
                   <CardContent className="flex-1 overflow-y-auto">
-                    <Droppable droppableId={column.id}>
+                    <DroppableWrapper droppableId={column.id}>
                       {(provided) => (
                         <div
                           {...provided.droppableProps}
@@ -479,7 +550,7 @@ const KanbanBoard = () => {
                           className="space-y-2 min-h-[200px]"
                         >
                           {getFilteredTasks(column.tasks).map((task, index) => (
-                            <Draggable
+                            <DraggableWrapper
                               key={task.id}
                               draggableId={task.id}
                               index={index}
@@ -556,18 +627,18 @@ const KanbanBoard = () => {
                                   </div>
                                 </div>
                               )}
-                            </Draggable>
+                            </DraggableWrapper>
                           ))}
                           {provided.placeholder}
                         </div>
                       )}
-                    </Droppable>
+                    </DroppableWrapper>
                   </CardContent>
                 </Card>
               </div>
             ))}
           </div>
-        </DragDropContext>
+        </DragDropContextWrapper>
       </div>
     </div>
   );

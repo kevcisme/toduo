@@ -46,6 +46,9 @@ import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { ScrollArea } from "./ui/scroll-area";
 import NoteEditor, { Note } from "./NoteEditor";
+import { useDatabase } from "../contexts/DatabaseContext";
+import { Task as DBTask, Tag as DBTag } from "../db/models";
+import { taskApi, tagApi } from '../services/api';
 
 interface Task {
   id: string;
@@ -68,78 +71,128 @@ const TaskManager = ({
   notes = [],
   onCreateNote = () => {},
 }: TaskManagerProps) => {
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: "1",
-      title: "Complete project proposal",
-      description: "Finish the draft and send it to the team for review",
-      completed: false,
-      priority: "high",
-      dueDate: "2023-06-15",
-      linkedNoteIds: ["2"],
-    },
-    {
-      id: "2",
-      title: "Schedule team meeting",
-      description: "Coordinate with all team members for weekly sync",
-      completed: true,
-      priority: "medium",
-      dueDate: "2023-06-10",
-      linkedNoteIds: [],
-    },
-    {
-      id: "3",
-      title: "Research new tools",
-      description: "Look into productivity tools for the team",
-      completed: false,
-      priority: "low",
-      dueDate: null,
-      linkedNoteIds: [],
-    },
-  ]);
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterPriority, setFilterPriority] = useState<string>("all");
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("dueDate");
+  const [searchNotesQuery, setSearchNotesQuery] = useState("");
+  const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
+  const [isEditTaskOpen, setIsEditTaskOpen] = useState(false);
+  const [isLinkNoteOpen, setIsLinkNoteOpen] = useState(false);
+  const [isCreateNoteOpen, setIsCreateNoteOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [newTask, setNewTask] = useState<Omit<Task, "id">>({
     title: "",
     description: "",
     completed: false,
     priority: "medium",
     dueDate: null,
+    linkedNoteIds: [],
   });
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [showLinkNotesDialog, setShowLinkNotesDialog] = useState(false);
-  const [selectedTaskForNotes, setSelectedTaskForNotes] = useState<Task | null>(
-    null,
-  );
-  const [searchNotesQuery, setSearchNotesQuery] = useState("");
+  const [dbTasks, setDbTasks] = useState<DBTask[]>([]);
+  const [dbTags, setDbTags] = useState<DBTag[]>([]);
+  const [tags, setTags] = useState<DBTag[]>([]);
 
-  const handleAddTask = () => {
-    if (newTask.title.trim() === "") return;
-
-    const task: Task = {
-      ...newTask,
-      id: Date.now().toString(),
+  // Load tasks from database
+  useEffect(() => {
+    const loadTasks = async () => {
+      try {
+        const loadedTasks = await taskApi.getAllTasks();
+        setDbTasks(loadedTasks);
+        
+        // Convert DB tasks to UI tasks
+        const uiTasks = loadedTasks.map(dbTask => ({
+          id: dbTask.id.toString(),
+          title: dbTask.title,
+          description: dbTask.description || "",
+          completed: dbTask.completed,
+          priority: "medium" as const, // Default priority
+          dueDate: null, // No due date in DB schema yet
+          linkedNoteIds: [],
+        }));
+        
+        setTasks(uiTasks);
+        setFilteredTasks(uiTasks);
+      } catch (error) {
+        console.error("Error loading tasks:", error);
+      }
     };
+    
+    const loadTags = async () => {
+      try {
+        const loadedTags = await tagApi.getAllTags();
+        setDbTags(loadedTags);
+        setTags(loadedTags);
+      } catch (error) {
+        console.error("Error loading tags:", error);
+      }
+    };
+    
+    loadTasks();
+    loadTags();
+  }, []);
 
-    setTasks([...tasks, task]);
-    setNewTask({
-      title: "",
-      description: "",
-      completed: false,
-      priority: "medium",
-      dueDate: null,
-    });
+  useEffect(() => {
+    const filtered = tasks.filter(task =>
+      task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      task.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredTasks(filtered);
+  }, [searchTerm, tasks]);
+
+  const handleAddTask = async () => {
+    if (!newTask.title.trim()) return;
+
+    try {
+      const result = await taskApi.createTask(newTask.title, newTask.description);
+      const newTaskWithId = {
+        id: result.lastInsertRowid.toString(),
+        title: newTask.title,
+        description: newTask.description,
+        completed: false,
+        priority: newTask.priority,
+        dueDate: newTask.dueDate,
+        linkedNoteIds: [],
+      };
+      setTasks([...tasks, newTaskWithId]);
+      setNewTask({
+        title: "",
+        description: "",
+        completed: false,
+        priority: "medium",
+        dueDate: null,
+        linkedNoteIds: [],
+      });
+      setIsAddTaskOpen(false);
+    } catch (error) {
+      console.error("Error adding task:", error);
+    }
   };
 
-  const handleUpdateTask = () => {
-    if (!editingTask || editingTask.title.trim() === "") return;
+  const handleUpdateTask = async () => {
+    if (!selectedTask || !selectedTask.title.trim()) return;
 
-    setTasks(
-      tasks.map((task) => (task.id === editingTask.id ? editingTask : task)),
-    );
-    setEditingTask(null);
+    try {
+      const taskToUpdate = {
+        title: selectedTask.title,
+        description: selectedTask.description,
+        completed: selectedTask.completed,
+        priority: selectedTask.priority,
+        dueDate: selectedTask.dueDate,
+        linkedNoteIds: selectedTask.linkedNoteIds
+      };
+      
+      await taskApi.updateTask(parseInt(selectedTask.id), taskToUpdate);
+      setTasks(tasks.map(task =>
+        task.id === selectedTask.id ? selectedTask : task
+      ));
+      setIsEditTaskOpen(false);
+      setSelectedTask(null);
+    } catch (error) {
+      console.error("Error updating task:", error);
+    }
   };
 
   const handleLinkNote = (taskId: string, noteId: string) => {
@@ -180,41 +233,42 @@ const TaskManager = ({
     onCreateNote(noteData);
 
     // Close the dialog
-    setShowLinkNotesDialog(false);
-    setSelectedTaskForNotes(null);
+    setIsLinkNoteOpen(false);
+    setSelectedTask(null);
   };
 
-  const handleDeleteTask = (id: string) => {
-    setTasks(tasks.filter((task) => task.id !== id));
+  const handleDeleteTask = async (id: string) => {
+    try {
+      await taskApi.deleteTask(parseInt(id));
+      setTasks(tasks.filter((task) => task.id !== id));
+    } catch (error) {
+      console.error("Error deleting task:", error);
+    }
   };
 
-  const handleToggleComplete = (id: string) => {
-    setTasks(
-      tasks.map((task) =>
-        task.id === id ? { ...task, completed: !task.completed } : task,
-      ),
-    );
-  };
+  const handleToggleComplete = async (id: string) => {
+    try {
+      const task = tasks.find(t => t.id === id);
+      if (!task) return;
 
-  const filteredTasks = tasks
-    .filter((task) =>
-      task.title.toLowerCase().includes(searchQuery.toLowerCase()),
-    )
-    .filter(
-      (task) => filterPriority === "all" || task.priority === filterPriority,
-    )
-    .sort((a, b) => {
-      if (sortBy === "priority") {
-        const priorityOrder = { high: 0, medium: 1, low: 2 };
-        return priorityOrder[a.priority] - priorityOrder[b.priority];
-      } else if (sortBy === "dueDate") {
-        if (!a.dueDate) return 1;
-        if (!b.dueDate) return -1;
-        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-      } else {
-        return 0;
-      }
-    });
+      const updatedTask = { ...task, completed: !task.completed };
+      const taskToUpdate = {
+        title: updatedTask.title,
+        description: updatedTask.description,
+        completed: updatedTask.completed,
+        priority: updatedTask.priority,
+        dueDate: updatedTask.dueDate,
+        linkedNoteIds: updatedTask.linkedNoteIds
+      };
+      
+      await taskApi.updateTask(parseInt(id), taskToUpdate);
+      setTasks(tasks.map(t =>
+        t.id === id ? updatedTask : t
+      ));
+    } catch (error) {
+      console.error("Error toggling task completion:", error);
+    }
+  };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -317,12 +371,12 @@ const TaskManager = ({
           <Input
             placeholder="Search tasks..."
             className="pl-8"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         <div className="flex gap-2">
-          <Select value={filterPriority} onValueChange={setFilterPriority}>
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
             <SelectTrigger className="w-[130px]">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Filter" />
@@ -332,6 +386,17 @@ const TaskManager = ({
               <SelectItem value="high">High Priority</SelectItem>
               <SelectItem value="medium">Medium Priority</SelectItem>
               <SelectItem value="low">Low Priority</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[130px]">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Filter" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
             </SelectContent>
           </Select>
           <Select value={sortBy} onValueChange={setSortBy}>
@@ -389,16 +454,16 @@ const TaskManager = ({
                           <DialogHeader>
                             <DialogTitle>Edit Task</DialogTitle>
                           </DialogHeader>
-                          {editingTask && (
+                          {selectedTask && (
                             <div className="grid gap-4 py-4">
                               <div className="grid gap-2">
                                 <Label htmlFor="edit-title">Title</Label>
                                 <Input
                                   id="edit-title"
-                                  value={editingTask.title}
+                                  value={selectedTask.title}
                                   onChange={(e) =>
-                                    setEditingTask({
-                                      ...editingTask,
+                                    setSelectedTask({
+                                      ...selectedTask,
                                       title: e.target.value,
                                     })
                                   }
@@ -410,10 +475,10 @@ const TaskManager = ({
                                 </Label>
                                 <Textarea
                                   id="edit-description"
-                                  value={editingTask.description}
+                                  value={selectedTask.description}
                                   onChange={(e) =>
-                                    setEditingTask({
-                                      ...editingTask,
+                                    setSelectedTask({
+                                      ...selectedTask,
                                       description: e.target.value,
                                     })
                                   }
@@ -422,10 +487,10 @@ const TaskManager = ({
                               <div className="grid gap-2">
                                 <Label htmlFor="edit-priority">Priority</Label>
                                 <Select
-                                  value={editingTask.priority}
+                                  value={selectedTask.priority}
                                   onValueChange={(value) =>
-                                    setEditingTask({
-                                      ...editingTask,
+                                    setSelectedTask({
+                                      ...selectedTask,
                                       priority: value as
                                         | "low"
                                         | "medium"
@@ -452,10 +517,10 @@ const TaskManager = ({
                                 <Input
                                   id="edit-dueDate"
                                   type="date"
-                                  value={editingTask.dueDate || ""}
+                                  value={selectedTask.dueDate || ""}
                                   onChange={(e) =>
-                                    setEditingTask({
-                                      ...editingTask,
+                                    setSelectedTask({
+                                      ...selectedTask,
                                       dueDate: e.target.value || null,
                                     })
                                   }
@@ -506,8 +571,8 @@ const TaskManager = ({
                       className="h-6 px-2 text-xs"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setSelectedTaskForNotes(task);
-                        setShowLinkNotesDialog(true);
+                        setSelectedTask(task);
+                        setIsLinkNoteOpen(true);
                       }}
                     >
                       <LinkIcon className="h-3 w-3 mr-1" />
@@ -530,13 +595,13 @@ const TaskManager = ({
       </CardFooter>
 
       {/* Link Notes Dialog */}
-      <Dialog open={showLinkNotesDialog} onOpenChange={setShowLinkNotesDialog}>
+      <Dialog open={isLinkNoteOpen} onOpenChange={setIsLinkNoteOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Link Notes to Task</DialogTitle>
             <DialogDescription>
-              {selectedTaskForNotes && (
-                <span>Task: {selectedTaskForNotes.title}</span>
+              {selectedTask && (
+                <span>Task: {selectedTask.title}</span>
               )}
             </DialogDescription>
           </DialogHeader>
@@ -579,17 +644,17 @@ const TaskManager = ({
                               </p>
                             </div>
                             <div>
-                              {selectedTaskForNotes &&
-                              selectedTaskForNotes.linkedNoteIds?.includes(
+                              {selectedTask &&
+                              selectedTask.linkedNoteIds?.includes(
                                 note.id,
                               ) ? (
                                 <Button
                                   variant="outline"
                                   size="sm"
                                   onClick={() => {
-                                    if (selectedTaskForNotes) {
+                                    if (selectedTask) {
                                       handleUnlinkNote(
-                                        selectedTaskForNotes.id,
+                                        selectedTask.id,
                                         note.id,
                                       );
                                     }
@@ -602,9 +667,9 @@ const TaskManager = ({
                                   variant="outline"
                                   size="sm"
                                   onClick={() => {
-                                    if (selectedTaskForNotes) {
+                                    if (selectedTask) {
                                       handleLinkNote(
-                                        selectedTaskForNotes.id,
+                                        selectedTask.id,
                                         note.id,
                                       );
                                     }
@@ -625,13 +690,13 @@ const TaskManager = ({
             <div className="flex justify-center">
               <NoteEditor
                 onSave={(noteData) => {
-                  if (selectedTaskForNotes) {
+                  if (selectedTask) {
                     // Add the task ID to the linkedTaskIds array
                     const updatedNoteData = {
                       ...noteData,
                       linkedTaskIds: [
                         ...(noteData.linkedTaskIds || []),
-                        selectedTaskForNotes.id,
+                        selectedTask.id,
                       ],
                     };
                     handleCreateNoteForTask(updatedNoteData);
@@ -647,7 +712,7 @@ const TaskManager = ({
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => setShowLinkNotesDialog(false)}>Done</Button>
+            <Button onClick={() => setIsLinkNoteOpen(false)}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

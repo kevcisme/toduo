@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
+import DragDropContextWrapper from "./DragDropContextWrapper";
+import DroppableWrapper from "./DroppableWrapper";
+import DraggableWrapper from "./DraggableWrapper";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -286,8 +288,8 @@ const Dashboard = ({
 
             {/* Components Section */}
             <h2 className="text-xl font-semibold mb-4">Your Workspace</h2>
-            <DragDropContext onDragEnd={handleDragEnd}>
-              <Droppable
+            <DragDropContextWrapper onDragEnd={handleDragEnd}>
+              <DroppableWrapper
                 droppableId="dashboard-components"
                 direction="vertical"
               >
@@ -311,7 +313,7 @@ const Dashboard = ({
                                   100 / layout.filter((i) => i.visible).length
                                 }
                               >
-                                <Draggable draggableId={item.id} index={index}>
+                                <DraggableWrapper draggableId={item.id} index={index}>
                                   {(provided) => (
                                     <div
                                       ref={provided.innerRef}
@@ -341,7 +343,7 @@ const Dashboard = ({
                                       </Card>
                                     </div>
                                   )}
-                                </Draggable>
+                                </DraggableWrapper>
                               </ResizablePanel>
                             </React.Fragment>
                           ),
@@ -350,8 +352,8 @@ const Dashboard = ({
                     {provided.placeholder}
                   </div>
                 )}
-              </Droppable>
-            </DragDropContext>
+              </DroppableWrapper>
+            </DragDropContextWrapper>
 
             {layout.some((item) => !item.visible) && (
               <div className="mt-4">

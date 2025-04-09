@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -38,53 +38,43 @@ import {
   associateDocumentWithNote,
   getDocumentsByNoteId,
 } from "@/services/documentService";
+import { useDatabase } from "../contexts/DatabaseContext";
+import { Note as DBNote, Tag as DBTag } from "../db/models";
 
 interface NotesManagerProps {
   className?: string;
 }
-
 const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
-  const [notes, setNotes] = useState<Note[]>([
-    {
-      id: "1",
-      title: "Project Ideas",
-      content:
-        "- Create a personal dashboard\n- Build a recipe app\n- Learn GraphQL",
-      createdAt: new Date(2023, 5, 10),
-      updatedAt: new Date(2023, 5, 15),
-      tags: ["projects", "ideas"],
-    },
-    {
-      id: "2",
-      title: "Meeting Notes: Team Sync",
-      content: "Discussed project timeline and assigned tasks to team members.",
-      createdAt: new Date(2023, 5, 12),
-      updatedAt: new Date(2023, 5, 12),
-      linkedTaskIds: ["1"],
-      linkedEventIds: ["1"],
-      tags: ["meeting", "team"],
-    },
-    {
-      id: "3",
-      title: "Learning Resources",
-      content:
-        "- React Advanced Patterns\n- TypeScript Best Practices\n- CSS Grid Layouts",
-      createdAt: new Date(2023, 5, 8),
-      updatedAt: new Date(2023, 5, 14),
-      tags: ["learning", "resources"],
-    },
-  ]);
-
+  const { noteService, tagService } = useDatabase();
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [filteredNotes, setFilteredNotes] = useState<Note[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
+  const [isEditNoteOpen, setIsEditNoteOpen] = useState(false);
+  const [isLinkNoteOpen, setIsLinkNoteOpen] = useState(false);
+  const [isDocumentUploadOpen, setIsDocumentUploadOpen] = useState(false);
+  const [isScheduleViewOpen, setIsScheduleViewOpen] = useState(false);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [newNote, setNewNote] = useState<Omit<Note, "id" | "createdAt" | "updatedAt">>({
+    title: "",
+    content: "",
+    tags: [],
+  });
+  const [dbNotes, setDbNotes] = useState<DBNote[]>([]);
+  const [dbTags, setDbTags] = useState<DBTag[]>([]);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [scheduleData, setScheduleData] = useState<ScheduleData>({
+    dailyEntries: {},
+    weekly: null
+  });
   const [viewNoteOpen, setViewNoteOpen] = useState(false);
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
-  const [documents, setDocuments] = useState<Document[]>([]);
 
   // Schedule view state
   const [showScheduleView, setShowScheduleView] = useState(false);
-  const [scheduleData, setScheduleData] = useState<ScheduleData | null>(null);
   const [selectedDailyEntry, setSelectedDailyEntry] =
     useState<DailyEntry | null>(null);
   const [viewMode, setViewMode] = useState<"weekly" | "daily">("weekly");
@@ -108,71 +98,166 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
     return tasks;
   };
 
+  // Load notes from database
+  useEffect(() => {
+    const loadNotes = async () => {
+      try {
+        const loadedNotes = noteService.getAllNotes();
+        setDbNotes(loadedNotes);
+        
+        // Convert DB notes to UI notes
+        const uiNotes = loadedNotes.map(dbNote => ({
+          id: dbNote.id.toString(),
+          title: dbNote.title,
+          content: dbNote.content || "",
+          createdAt: new Date(dbNote.created_at),
+          updatedAt: new Date(dbNote.updated_at),
+          tags: [],
+          linkedTaskIds: [],
+          linkedEventIds: [],
+        }));
+        
+        setNotes(uiNotes);
+        setFilteredNotes(uiNotes);
+      } catch (error) {
+        console.error("Error loading notes:", error);
+      }
+    };
+    
+    const loadTags = async () => {
+      try {
+        const loadedTags = tagService.getAllTags();
+        setDbTags(loadedTags);
+      } catch (error) {
+        console.error("Error loading tags:", error);
+      }
+    };
+    
+    loadNotes();
+    loadTags();
+  }, [noteService, tagService]);
+
+  // Filter notes based on search query and active tab
+  useEffect(() => {
+    const filtered = notes
+      .filter(
+        (note) =>
+          note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          note.content.toLowerCase().includes(searchQuery.toLowerCase()),
+      )
+      .filter((note) => {
+        if (activeTab === "all") return true;
+        if (
+          activeTab === "linked" &&
+          (note.linkedTaskIds?.length || note.linkedEventIds?.length)
+        )
+          return true;
+        if (
+          activeTab === "unlinked" &&
+          !note.linkedTaskIds?.length &&
+          !note.linkedEventIds?.length
+        )
+          return true;
+        return note.tags?.includes(activeTab);
+      })
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    
+    setFilteredNotes(filtered);
+  }, [notes, searchQuery, activeTab]);
+
+  const allTags = Array.from(new Set(notes.flatMap((note) => note.tags || [])));
+
   const handleAddNote = (
     noteData: Omit<Note, "id" | "createdAt" | "updatedAt">,
   ) => {
-    const newNote: Note = {
-      ...noteData,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    setNotes([...notes, newNote]);
+    try {
+      // Add note to database
+      const result = noteService.createNote(noteData.title, noteData.content);
+      
+      // Create UI note from DB note
+      const dbNote = noteService.getNoteById(result.lastInsertRowid as number);
+      if (dbNote) {
+        const uiNote: Note = {
+          id: dbNote.id.toString(),
+          title: dbNote.title,
+          content: dbNote.content || "",
+          createdAt: new Date(dbNote.created_at),
+          updatedAt: new Date(dbNote.updated_at),
+          tags: noteData.tags || [],
+          linkedTaskIds: [],
+          linkedEventIds: [],
+        };
+        
+        setNotes([uiNote, ...notes]);
+        setFilteredNotes([uiNote, ...filteredNotes]);
+      }
+      
+      setNewNote({
+        title: "",
+        content: "",
+        tags: [],
+      });
+      setIsAddNoteOpen(false);
+    } catch (error) {
+      console.error("Error adding note:", error);
+    }
   };
 
   const handleUpdateNote = (
     noteData: Omit<Note, "id" | "createdAt" | "updatedAt">,
   ) => {
     if (!selectedNote) return;
-
-    setNotes(
-      notes.map((note) =>
-        note.id === selectedNote.id
-          ? {
-              ...note,
-              ...noteData,
-              updatedAt: new Date(),
-            }
-          : note,
-      ),
-    );
-
-    setSelectedNote(null);
-  };
-
-  const handleDeleteNote = (id: string) => {
-    setNotes(notes.filter((note) => note.id !== id));
-    if (selectedNote?.id === id) {
+    
+    try {
+      // Update note in database
+      noteService.updateNote(parseInt(selectedNote.id), {
+        title: noteData.title,
+        content: noteData.content,
+      });
+      
+      // Update UI
+      const updatedNote: Note = {
+        ...selectedNote,
+        title: noteData.title,
+        content: noteData.content,
+        tags: noteData.tags || [],
+      };
+      
+      const updatedNotes = notes.map((note) =>
+        note.id === selectedNote.id ? updatedNote : note
+      );
+      
+      setNotes(updatedNotes);
+      setFilteredNotes(
+        updatedNotes.filter((note) =>
+          note.title.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      );
+      
       setSelectedNote(null);
-      setViewNoteOpen(false);
+      setIsEditNoteOpen(false);
+    } catch (error) {
+      console.error("Error updating note:", error);
     }
   };
 
-  const filteredNotes = notes
-    .filter(
-      (note) =>
-        note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        note.content.toLowerCase().includes(searchQuery.toLowerCase()),
-    )
-    .filter((note) => {
-      if (activeTab === "all") return true;
-      if (
-        activeTab === "linked" &&
-        (note.linkedTaskIds?.length || note.linkedEventIds?.length)
-      )
-        return true;
-      if (
-        activeTab === "unlinked" &&
-        !note.linkedTaskIds?.length &&
-        !note.linkedEventIds?.length
-      )
-        return true;
-      return note.tags?.includes(activeTab);
-    })
-    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
-
-  const allTags = Array.from(new Set(notes.flatMap((note) => note.tags || [])));
+  const handleDeleteNote = (id: string) => {
+    try {
+      // Delete note from database
+      noteService.deleteNote(parseInt(id));
+      
+      // Update UI
+      const updatedNotes = notes.filter((note) => note.id !== id);
+      setNotes(updatedNotes);
+      setFilteredNotes(
+        updatedNotes.filter((note) =>
+          note.title.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      );
+    } catch (error) {
+      console.error("Error deleting note:", error);
+    }
+  };
 
   const handleDocumentUpload = async (document: Document) => {
     setDocuments((prev) => [...prev, document]);
