@@ -63,7 +63,7 @@ export default function Home() {
       {/* Sidebar */}
       <div className="w-16 md:w-64 h-full border-r bg-card flex flex-col">
         <div className="p-4 border-b">
-          <h1 className="text-xl font-bold hidden md:block">Todo App</h1>
+          <h1 className="text-xl font-bold hidden md:block">Toduo</h1>
           <Button variant="ghost" size="icon" className="md:hidden">
             <Menu className="h-5 w-5" />
           </Button>

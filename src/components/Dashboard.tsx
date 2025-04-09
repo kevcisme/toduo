@@ -163,7 +163,7 @@ const Dashboard = ({
         >
           <div className="p-4 flex items-center justify-between border-b">
             {!sidebarCollapsed && (
-              <h2 className="text-xl font-bold">Todo App</h2>
+              <h2 className="text-xl font-bold">Toduo</h2>
             )}
             <Button variant="ghost" size="icon" onClick={toggleSidebar}>
               <PanelLeft className="h-5 w-5" />

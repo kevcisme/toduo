@@ -4,7 +4,7 @@
 
 Toduo is a full-stack, cross-platform task management application with local-first storage and optional cloud sync. Built with modern web technologies and available as both a web app and desktop application.
 
-![Toduo App](https://via.placeholder.com/800x400?text=Toduo+Screenshot)
+![Toduo App](./docs/dashboard.png)
 
 ## Features
 
