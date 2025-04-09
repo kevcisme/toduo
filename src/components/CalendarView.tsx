@@ -29,6 +29,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   CalendarIcon,
   PlusIcon,
@@ -36,7 +38,12 @@ import {
   CalendarDays,
   Clock,
   Calendar as CalendarLucide,
+  FileText,
+  Link as LinkIcon,
+  Plus,
+  Search,
 } from "lucide-react";
+import NoteEditor, { Note } from "./NoteEditor";
 
 interface CalendarEvent {
   id: string;
@@ -54,6 +61,8 @@ interface CalendarViewProps {
   onAddEvent?: (event: Omit<CalendarEvent, "id">) => void;
   onConnectCalendar?: (provider: "google" | "outlook") => void;
   onRefreshCalendar?: () => void;
+  notes?: Note[];
+  onCreateNote?: (note: Omit<Note, "id" | "createdAt" | "updatedAt">) => void;
 }
 
 const CalendarView: React.FC<CalendarViewProps> = ({
@@ -91,6 +100,28 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   onAddEvent = () => {},
   onConnectCalendar = () => {},
   onRefreshCalendar = () => {},
+  notes = [
+    {
+      id: "1",
+      title: "Project Ideas",
+      content:
+        "- Create a personal dashboard\n- Build a recipe app\n- Learn GraphQL",
+      createdAt: new Date(2023, 5, 10),
+      updatedAt: new Date(2023, 5, 15),
+      tags: ["projects", "ideas"],
+    },
+    {
+      id: "2",
+      title: "Meeting Notes: Team Sync",
+      content: "Discussed project timeline and assigned tasks to team members.",
+      createdAt: new Date(2023, 5, 12),
+      updatedAt: new Date(2023, 5, 12),
+      linkedTaskIds: ["1"],
+      linkedEventIds: ["1"],
+      tags: ["meeting", "team"],
+    },
+  ],
+  onCreateNote = () => {},
 }) => {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [view, setView] = useState<"day" | "week" | "month">("day");
@@ -102,6 +133,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     end: new Date(new Date().getTime() + 60 * 60 * 1000), // 1 hour later
     source: "local" as const,
   });
+  const [showLinkNotesDialog, setShowLinkNotesDialog] = useState(false);
+  const [selectedEventForNotes, setSelectedEventForNotes] =
+    useState<CalendarEvent | null>(null);
+  const [searchNotesQuery, setSearchNotesQuery] = useState("");
 
   // Get hours for the current day
   const hours = Array.from({ length: 24 }, (_, i) => i);
@@ -128,6 +163,60 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       end: new Date(new Date().getTime() + 60 * 60 * 1000),
       source: "local",
     });
+  };
+
+  const handleLinkNote = (eventId: string, noteId: string) => {
+    // This would typically update the state and/or call an API
+    const updatedEvents = events.map((event) => {
+      if (event.id === eventId) {
+        const linkedNoteIds = event.linkedNoteIds || [];
+        if (!linkedNoteIds.includes(noteId)) {
+          return {
+            ...event,
+            linkedNoteIds: [...linkedNoteIds, noteId],
+          };
+        }
+      }
+      return event;
+    });
+    // In a real app, you would update the state or call an API here
+    console.log("Updated events:", updatedEvents);
+  };
+
+  const handleUnlinkNote = (eventId: string, noteId: string) => {
+    // This would typically update the state and/or call an API
+    const updatedEvents = events.map((event) => {
+      if (event.id === eventId && event.linkedNoteIds) {
+        return {
+          ...event,
+          linkedNoteIds: event.linkedNoteIds.filter((id) => id !== noteId),
+        };
+      }
+      return event;
+    });
+    // In a real app, you would update the state or call an API here
+    console.log("Updated events:", updatedEvents);
+  };
+
+  const handleCreateNoteForEvent = (
+    noteData: Omit<Note, "id" | "createdAt" | "updatedAt">,
+  ) => {
+    // Call the parent component's onCreateNote function
+    if (selectedEventForNotes) {
+      // Add the event ID to the linkedEventIds array
+      const updatedNoteData = {
+        ...noteData,
+        linkedEventIds: [
+          ...(noteData.linkedEventIds || []),
+          selectedEventForNotes.id,
+        ],
+      };
+      onCreateNote(updatedNoteData);
+    }
+
+    // Close the dialog
+    setShowLinkNotesDialog(false);
+    setSelectedEventForNotes(null);
   };
 
   const getSourceBadge = (source: "google" | "outlook" | "local") => {
@@ -444,6 +533,34 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           <div className="absolute top-1 right-1">
                             {getSourceBadge(event.source)}
                           </div>
+                          <div className="absolute bottom-1 right-1">
+                            {event.linkedNoteIds &&
+                              event.linkedNoteIds.length > 0 && (
+                                <Badge
+                                  variant="outline"
+                                  className="bg-white/20 text-white text-xs"
+                                >
+                                  <FileText className="h-3 w-3 mr-1" />
+                                  {event.linkedNoteIds.length}
+                                </Badge>
+                              )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute bottom-1 left-1 h-6 px-2 text-xs bg-white/20 text-white hover:bg-white/30"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEventForNotes(event);
+                              setShowLinkNotesDialog(true);
+                            }}
+                          >
+                            <LinkIcon className="h-3 w-3 mr-1" />
+                            {event.linkedNoteIds &&
+                            event.linkedNoteIds.length > 0
+                              ? "Notes"
+                              : "Link"}
+                          </Button>
                         </div>
                       );
                     })}
@@ -516,6 +633,129 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           </div>
         </div>
       </CardFooter>
+
+      {/* Link Notes Dialog */}
+      <Dialog open={showLinkNotesDialog} onOpenChange={setShowLinkNotesDialog}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Link Notes to Event</DialogTitle>
+            <DialogDescription>
+              {selectedEventForNotes && (
+                <span>Event: {selectedEventForNotes.title}</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search notes..."
+                className="pl-8"
+                value={searchNotesQuery}
+                onChange={(e) => setSearchNotesQuery(e.target.value)}
+              />
+            </div>
+            <div className="border rounded-md">
+              <ScrollArea className="h-[300px]">
+                <div className="p-4 space-y-4">
+                  {notes.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground">
+                      No notes available. Create a new note to link to this
+                      event.
+                    </div>
+                  ) : (
+                    notes
+                      .filter(
+                        (note) =>
+                          note.title
+                            .toLowerCase()
+                            .includes(searchNotesQuery.toLowerCase()) ||
+                          note.content
+                            .toLowerCase()
+                            .includes(searchNotesQuery.toLowerCase()),
+                      )
+                      .map((note) => (
+                        <div key={note.id} className="border rounded-md p-3">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h4 className="font-medium">{note.title}</h4>
+                              <p className="text-sm text-muted-foreground line-clamp-2">
+                                {note.content}
+                              </p>
+                            </div>
+                            <div>
+                              {selectedEventForNotes &&
+                              selectedEventForNotes.linkedNoteIds?.includes(
+                                note.id,
+                              ) ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    if (selectedEventForNotes) {
+                                      handleUnlinkNote(
+                                        selectedEventForNotes.id,
+                                        note.id,
+                                      );
+                                    }
+                                  }}
+                                >
+                                  Unlink
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    if (selectedEventForNotes) {
+                                      handleLinkNote(
+                                        selectedEventForNotes.id,
+                                        note.id,
+                                      );
+                                    }
+                                  }}
+                                >
+                                  <LinkIcon className="h-4 w-4 mr-1" />
+                                  Link
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+            <div className="flex justify-center">
+              <NoteEditor
+                onSave={(noteData) => {
+                  if (selectedEventForNotes) {
+                    // Add the event ID to the linkedEventIds array
+                    const updatedNoteData = {
+                      ...noteData,
+                      linkedEventIds: [
+                        ...(noteData.linkedEventIds || []),
+                        selectedEventForNotes.id,
+                      ],
+                    };
+                    handleCreateNoteForEvent(updatedNoteData);
+                  }
+                }}
+                trigger={
+                  <Button variant="outline">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create New Note
+                  </Button>
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowLinkNotesDialog(false)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

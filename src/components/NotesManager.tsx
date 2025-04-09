@@ -18,8 +18,26 @@ import {
 } from "./ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { ScrollArea } from "./ui/scroll-area";
-import { PlusCircle, Search, Edit, Trash2, Link, Tag } from "lucide-react";
+import {
+  PlusCircle,
+  Search,
+  Edit,
+  Trash2,
+  Link,
+  Tag,
+  Calendar,
+} from "lucide-react";
 import NoteEditor, { Note } from "./NoteEditor";
+import DocumentUpload, { Document } from "./DocumentUpload";
+import { DailyTask } from "@/types/app";
+import WeeklyView from "./WeeklyView";
+import DailyView from "./DailyView";
+import { DailyEntry, ScheduleData } from "@/types/app";
+import {
+  uploadDocument,
+  associateDocumentWithNote,
+  getDocumentsByNoteId,
+} from "@/services/documentService";
 
 interface NotesManagerProps {
   className?: string;
@@ -61,6 +79,34 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
   const [activeTab, setActiveTab] = useState("all");
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [viewNoteOpen, setViewNoteOpen] = useState(false);
+  const [showDocumentUpload, setShowDocumentUpload] = useState(false);
+  const [documents, setDocuments] = useState<Document[]>([]);
+
+  // Schedule view state
+  const [showScheduleView, setShowScheduleView] = useState(false);
+  const [scheduleData, setScheduleData] = useState<ScheduleData | null>(null);
+  const [selectedDailyEntry, setSelectedDailyEntry] =
+    useState<DailyEntry | null>(null);
+  const [viewMode, setViewMode] = useState<"weekly" | "daily">("weekly");
+
+  // Get all tasks from schedule data
+  const getAllScheduleTasks = (): DailyTask[] => {
+    if (!scheduleData) return [];
+
+    const tasks: DailyTask[] = [];
+
+    // Add tasks from daily entries
+    Object.values(scheduleData.dailyEntries).forEach((entry) => {
+      tasks.push(...entry.tasks);
+    });
+
+    // Add unfinished tasks from weekly data
+    if (scheduleData.weekly?.unfinishedTasks) {
+      tasks.push(...scheduleData.weekly.unfinishedTasks);
+    }
+
+    return tasks;
+  };
 
   const handleAddNote = (
     noteData: Omit<Note, "id" | "createdAt" | "updatedAt">,
@@ -128,12 +174,106 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
 
   const allTags = Array.from(new Set(notes.flatMap((note) => note.tags || [])));
 
+  const handleDocumentUpload = async (document: Document) => {
+    setDocuments((prev) => [...prev, document]);
+
+    // If a note is selected, associate the document with it
+    if (selectedNote) {
+      associateDocumentWithNote(document.id, selectedNote.id);
+    }
+
+    // If the document has schedule data, update the schedule state
+    if (document.scheduleData) {
+      setScheduleData(document.scheduleData);
+      // If we have daily entries, show the schedule view
+      if (Object.keys(document.scheduleData.dailyEntries).length > 0) {
+        setShowScheduleView(true);
+      }
+    }
+  };
+
+  const handleDocumentSelect = (documentId: string) => {
+    // For now, just log the selection. We'll implement document viewing later
+    console.log(`Selected document: ${documentId}`);
+
+    // Find the document
+    const selectedDoc = documents.find((doc) => doc.id === documentId);
+    if (selectedDoc?.scheduleData) {
+      setScheduleData(selectedDoc.scheduleData);
+      setShowScheduleView(true);
+    }
+  };
+
+  const toggleDocumentUpload = () => {
+    setShowDocumentUpload(!showDocumentUpload);
+  };
+
+  const toggleScheduleView = () => {
+    setShowScheduleView(!showScheduleView);
+    // Reset to weekly view when toggling
+    setViewMode("weekly");
+    setSelectedDailyEntry(null);
+  };
+
+  const handleDaySelect = (date: Date) => {
+    if (scheduleData) {
+      const dateStr = date.toLocaleDateString();
+      const entry = scheduleData.dailyEntries[dateStr];
+      if (entry) {
+        setSelectedDailyEntry(entry);
+        setViewMode("daily");
+      }
+    }
+  };
+
+  const handleBackToWeekly = () => {
+    setViewMode("weekly");
+    setSelectedDailyEntry(null);
+  };
+
+  const handleDateChange = (date: Date) => {
+    if (scheduleData) {
+      const dateStr = date.toLocaleDateString();
+      const entry = scheduleData.dailyEntries[dateStr];
+      if (entry) {
+        setSelectedDailyEntry(entry);
+      } else {
+        // If we don't have data for this date, create a basic entry
+        const newEntry: DailyEntry = {
+          date,
+          dateFormatted: dateStr,
+          bigThree: { date },
+          tasks: [],
+          scheduleItems: [],
+        };
+        setSelectedDailyEntry(newEntry);
+      }
+    }
+  };
+
   return (
     <Card className={`bg-white h-full flex flex-col ${className}`}>
       <CardHeader className="pb-2">
         <CardTitle className="text-xl font-bold flex items-center justify-between">
           <span>Notes</span>
-          <NoteEditor onSave={handleAddNote} />
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={toggleDocumentUpload}>
+              {showDocumentUpload ? "Hide Documents" : "Show Documents"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleScheduleView}
+              className={showScheduleView ? "bg-primary/10" : ""}
+            >
+              <Calendar className="h-4 w-4 mr-2" />
+              {showScheduleView ? "Hide Schedule" : "Show Schedule"}
+            </Button>
+            <NoteEditor
+              onSave={handleAddNote}
+              availableTasks={getAllScheduleTasks()}
+            />
+          </div>
         </CardTitle>
       </CardHeader>
       <div className="px-6 py-2 flex flex-col sm:flex-row gap-2">
@@ -147,6 +287,36 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
           />
         </div>
       </div>
+
+      {showDocumentUpload && (
+        <div className="px-6 pb-4">
+          <DocumentUpload
+            onDocumentUpload={handleDocumentUpload}
+            onDocumentSelect={handleDocumentSelect}
+            documents={documents}
+            className="border rounded-lg"
+          />
+        </div>
+      )}
+
+      {showScheduleView && (
+        <div className="px-6 pb-4">
+          {viewMode === "weekly" ? (
+            <WeeklyView
+              weeklyData={scheduleData?.weekly}
+              onDaySelect={handleDaySelect}
+              className="border rounded-lg"
+            />
+          ) : (
+            <DailyView
+              dailyEntry={selectedDailyEntry}
+              onDateChange={handleDateChange}
+              onBackToWeekly={handleBackToWeekly}
+              className="border rounded-lg"
+            />
+          )}
+        </div>
+      )}
       <div className="px-6 pb-2">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="w-full h-auto flex flex-wrap">
@@ -190,6 +360,7 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
                       <NoteEditor
                         note={note}
                         onSave={handleUpdateNote}
+                        availableTasks={getAllScheduleTasks()}
                         trigger={
                           <Button
                             variant="ghost"
@@ -289,6 +460,7 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
                 <NoteEditor
                   note={selectedNote}
                   onSave={handleUpdateNote}
+                  availableTasks={getAllScheduleTasks()}
                   trigger={<Button>Edit</Button>}
                 />
               </DialogFooter>
