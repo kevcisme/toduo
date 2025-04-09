@@ -46,6 +46,7 @@ import {
 import NoteEditor, { Note } from "./NoteEditor";
 import { useDatabase } from "../contexts/DatabaseContext";
 import { CalendarEvent as DBCalendarEvent, Tag as DBTag } from "../db/models";
+import GoogleCalendarConnect from "./GoogleCalendarConnect";
 
 interface CalendarEvent {
   id: string;
@@ -82,7 +83,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   notes = [],
   onCreateNote = () => {},
 }) => {
-  const { tagService } = useDatabase();
+  const { tagService, googleCalendarService } = useDatabase();
   
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
@@ -102,6 +103,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [dbTags, setDbTags] = useState<DBTag[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [googleEvents, setGoogleEvents] = useState<CalendarEvent[]>([]);
+  const [isGoogleConnected, setIsGoogleConnected] = useState(false);
+  const [isLoadingGoogleEvents, setIsLoadingGoogleEvents] = useState(false);
 
   // Combine both loading functions into a single useEffect
   useEffect(() => {
@@ -124,13 +128,85 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         // Load tags
         const loadedTags = await tagService.getAllTags();
         setDbTags(loadedTags);
+        
+        // Check if already connected to Google Calendar
+        setIsGoogleConnected(googleCalendarService.isAuthenticated);
       } catch (error) {
         console.error("Error loading data:", error);
       }
     };
 
     loadData();
-  }, [tagService]); // Only depend on tagService since it comes from context
+  }, [tagService, googleCalendarService]);
+  
+  // Handle connecting to Google Calendar
+  const handleConnectGoogleCalendar = async () => {
+    try {
+      // Start the authorization flow
+      googleCalendarService.authorize();
+      
+      // The callback in the service will set isAuthenticated
+      // We'll poll for authentication status in a real app
+      // For now, let's set up a check after a delay
+      setTimeout(async () => {
+        if (googleCalendarService.isAuthenticated) {
+          setIsGoogleConnected(true);
+          await fetchGoogleCalendarEvents();
+        }
+      }, 1000);
+    } catch (error) {
+      console.error("Error connecting to Google Calendar:", error);
+    }
+  };
+  
+  // Fetch events from Google Calendar
+  const fetchGoogleCalendarEvents = async () => {
+    if (!googleCalendarService.isAuthenticated) {
+      return;
+    }
+    
+    setIsLoadingGoogleEvents(true);
+    try {
+      const fetchedEvents = await googleCalendarService.fetchEvents();
+      
+      // Convert to UI format
+      const formattedEvents = fetchedEvents.map(event => ({
+        id: event.id.toString(),
+        title: event.title,
+        description: event.description || "",
+        start: new Date(event.start_time),
+        end: new Date(event.end_time),
+        source: "google" as const,
+        color: "#4285F4", // Google blue
+        linkedNoteIds: [],
+      }));
+      
+      setGoogleEvents(formattedEvents);
+    } catch (error) {
+      console.error("Error fetching Google Calendar events:", error);
+    } finally {
+      setIsLoadingGoogleEvents(false);
+    }
+  };
+  
+  // Combined events from local DB and Google Calendar
+  const allEvents = useMemo(() => {
+    return [...events, ...googleEvents];
+  }, [events, googleEvents]);
+  
+  // Filter events for the selected date (using allEvents)
+  const filteredEvents = useMemo(() => {
+    if (!selectedDate) return [];
+    
+    return allEvents.filter(event => {
+      const eventDate = new Date(event.start);
+      return (
+        eventDate.getDate() === selectedDate.getDate() &&
+        eventDate.getMonth() === selectedDate.getMonth() &&
+        eventDate.getFullYear() === selectedDate.getFullYear()
+      );
+    });
+  }, [allEvents, selectedDate]);
 
   const handleAddEvent = () => {
     if (newEvent.title.trim() === "") return;
@@ -186,18 +262,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   // Get hours for the current day
   const hours = Array.from({ length: 24 }, (_, i) => i);
-
-  // Filter events for the selected date
-  const filteredEvents = events.filter((event) => {
-    if (!selectedDate) return false;
-
-    const eventDate = new Date(event.start);
-    return (
-      eventDate.getDate() === selectedDate.getDate() &&
-      eventDate.getMonth() === selectedDate.getMonth() &&
-      eventDate.getFullYear() === selectedDate.getFullYear()
-    );
-  });
 
   const handleLinkNote = (eventId: string, noteId: string) => {
     // This would typically update the state and/or call an API
@@ -314,8 +378,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           </CardDescription>
         </div>
         <div className="flex space-x-2">
-          <Button variant="outline" size="sm" onClick={onRefreshCalendar}>
-            <RefreshCw className="h-4 w-4 mr-2" />
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => {
+              onRefreshCalendar();
+              if (isGoogleConnected) {
+                fetchGoogleCalendarEvents();
+              }
+            }}
+            disabled={isLoadingGoogleEvents}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingGoogleEvents ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
           <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
@@ -414,21 +488,23 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   Connected Calendars
                 </h3>
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between p-2 rounded-md border">
-                    <div className="flex items-center">
-                      <div className="h-8 w-8 rounded-full bg-[#4285F4] flex items-center justify-center text-white mr-2">
-                        <CalendarIcon className="h-4 w-4" />
-                      </div>
-                      <span>Google Calendar</span>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onConnectCalendar("google")}
-                    >
-                      Connect
-                    </Button>
-                  </div>
+                  <GoogleCalendarConnect 
+                    onEventsLoaded={(events) => {
+                      // Convert to UI format
+                      const formattedEvents = events.map(event => ({
+                        id: event.id.toString(),
+                        title: event.title,
+                        description: event.description || "",
+                        start: new Date(event.start_time),
+                        end: new Date(event.end_time),
+                        source: "google" as const,
+                        color: "#4285F4", // Google blue
+                        linkedNoteIds: [],
+                      }));
+                      
+                      setGoogleEvents(formattedEvents);
+                    }} 
+                  />
                   <div className="flex items-center justify-between p-2 rounded-md border">
                     <div className="flex items-center">
                       <div className="h-8 w-8 rounded-full bg-[#0078D4] flex items-center justify-center text-white mr-2">

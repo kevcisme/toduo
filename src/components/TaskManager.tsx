@@ -288,9 +288,9 @@ const TaskManager = ({
       <CardHeader className="pb-2">
         <CardTitle className="text-xl font-bold flex items-center justify-between">
           <span>Task Manager</span>
-          <Dialog>
+          <Dialog open={isAddTaskOpen} onOpenChange={setIsAddTaskOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="ml-auto">
+              <Button size="sm" className="ml-auto" onClick={() => setIsAddTaskOpen(true)}>
                 <PlusCircle className="h-4 w-4 mr-2" />
                 Add Task
               </Button>

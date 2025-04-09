@@ -1,5 +1,6 @@
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode, useEffect, useState } from 'react';
 import { taskApi, noteApi, kanbanApi, tagApi } from '../services/api';
+import { googleCalendarService } from '../services/calendarAuthService';
 
 // Create context
 interface DatabaseContextType {
@@ -7,6 +8,9 @@ interface DatabaseContextType {
   noteApi: typeof noteApi;
   kanbanService: typeof kanbanApi;
   tagService: typeof tagApi;
+  googleCalendarService: typeof googleCalendarService;
+  googleCalendarError: string | null;
+  resetGoogleCalendarError: () => void;
 }
 
 const DatabaseContext = createContext<DatabaseContextType | undefined>(undefined);
@@ -17,6 +21,26 @@ interface DatabaseProviderProps {
 }
 
 export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) => {
+  const [googleCalendarError, setGoogleCalendarError] = useState<string | null>(null);
+
+  // Initialize Google Calendar services when the app starts
+  useEffect(() => {
+    const initGoogleCalendar = async () => {
+      try {
+        await googleCalendarService.initialize();
+      } catch (error) {
+        console.error('Failed to initialize Google Calendar service:', error);
+        setGoogleCalendarError('Failed to initialize Google Calendar service. Please try again later.');
+      }
+    };
+    
+    initGoogleCalendar();
+  }, []);
+
+  const resetGoogleCalendarError = () => {
+    setGoogleCalendarError(null);
+  };
+
   return (
     <DatabaseContext.Provider
       value={{
@@ -24,6 +48,9 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
         noteApi,
         kanbanService: kanbanApi,
         tagService: tagApi,
+        googleCalendarService,
+        googleCalendarError,
+        resetGoogleCalendarError
       }}
     >
       {children}

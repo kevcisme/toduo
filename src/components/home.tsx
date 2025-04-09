@@ -13,9 +13,50 @@ import {
   FileText,
 } from "lucide-react";
 import NotesManager from "./NotesManager";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { taskApi } from '@/services/api';
 
 export default function Home() {
   const [activeView, setActiveView] = useState("dashboard");
+  const [isNewTaskDialogOpen, setIsNewTaskDialogOpen] = useState(false);
+  const [newTask, setNewTask] = useState({
+    title: "",
+    description: "",
+    priority: "medium",
+    dueDate: null,
+  });
+
+  const handleAddTask = async () => {
+    if (!newTask.title.trim()) return;
+
+    try {
+      await taskApi.create(newTask.title, newTask.description);
+      
+      // Reset form and close dialog
+      setNewTask({
+        title: "",
+        description: "",
+        priority: "medium",
+        dueDate: null,
+      });
+      setIsNewTaskDialogOpen(false);
+      
+      // You might need to add code here to refresh your task list
+      
+    } catch (error) {
+      console.error("Error adding task:", error);
+    }
+  };
 
   return (
     <div className="flex h-screen w-full bg-background">
@@ -89,12 +130,75 @@ export default function Home() {
             {activeView === "notes" && "Notes"}
           </h2>
           <div className="flex items-center space-x-2">
-            <Button size="sm">
+            <Button size="sm" onClick={() => setIsNewTaskDialogOpen(true)}>
               <PlusCircle className="h-4 w-4 mr-2" />
               New Task
             </Button>
           </div>
         </header>
+
+        {/* New Task Dialog */}
+        <Dialog open={isNewTaskDialogOpen} onOpenChange={setIsNewTaskDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Task</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="title">Title</Label>
+                <Input
+                  id="title"
+                  value={newTask.title}
+                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                  placeholder="Task title"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={newTask.description}
+                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                  placeholder="Task description"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="priority">Priority</Label>
+                <Select
+                  value={newTask.priority}
+                  onValueChange={(value) => setNewTask({
+                    ...newTask,
+                    priority: value,
+                  })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="dueDate">Due Date (Optional)</Label>
+                <Input
+                  id="dueDate"
+                  type="date"
+                  value={newTask.dueDate || ""}
+                  onChange={(e) => setNewTask({
+                    ...newTask,
+                    dueDate: e.target.value || null,
+                  })}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={handleAddTask}>Add Task</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Content Area */}
         <main className="flex-1 overflow-auto p-4">
