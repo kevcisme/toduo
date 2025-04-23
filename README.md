@@ -141,4 +141,4 @@ The application uses Vite for fast development and optimized builds, with TypeSc
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
-I dunno man, just give me money if you make money off this somehow. 
+I dunno man, just give me money if you make money off this somehow. Give lots of money. I'm tired of my day job

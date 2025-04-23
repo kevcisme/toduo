@@ -9,6 +9,8 @@ TempoDevtools.init();
 
 const basename = import.meta.env.BASE_URL;
 
+// Updated for git history
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter basename={basename}>
