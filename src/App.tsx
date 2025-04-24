@@ -4,7 +4,7 @@ import Home from "./components/home";
 import routes from "tempo-routes";
 import { DatabaseProvider } from "./contexts/DatabaseContext";
 
-// Updated for git history
+// Updated 
 
 function App() {
   return (

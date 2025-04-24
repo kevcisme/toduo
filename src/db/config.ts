@@ -13,4 +13,6 @@ const db = new Database(path.join(__dirname, '../../data.sqlite'), {
 // Enable foreign keys
 db.pragma('foreign_keys = ON');
 
+// TODO: Optimize database queries for faster loading
+
 export default db; 

@@ -411,3 +411,22 @@ const Dashboard = ({
 };
 
 export default Dashboard;
+
+// TODO: Implement drag-and-drop for task reordering
+// TODO: Add support for nested tasks and subtasks
+// TODO: Create custom lists/categories for better organization
+// TODO: Add dark/light theme toggle
+// TODO: Implement keyboard shortcuts for power users
+// TODO: Design mobile-responsive layouts for all screen sizes
+// TODO: Improve offline conflict resolution for cloud sync
+// TODO: Add data export/import functionality
+// TODO: Implement end-to-end encryption for cloud data
+// TODO: Add shared lists with permission controls
+// TODO: Implement real-time collaborative editing
+// TODO: Create notification system for shared task updates
+// TODO: Calendar integration (Google Calendar, Apple Calendar)
+// TODO: Email integration for task creation via email
+// TODO: API for third-party integrations
+// TODO: Optimize database queries for faster loading
+// TODO: Implement lazy loading for large task lists
+// TODO: Reduce Electron app memory footprint

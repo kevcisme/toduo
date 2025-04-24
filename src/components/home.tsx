@@ -26,6 +26,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { taskApi } from '@/services/api';
 
+// TODO: Implement keyboard shortcuts for power users
+// TODO: Design mobile-responsive layouts for all screen sizes
+// TODO: Add shared lists with permission controls
+// TODO: Implement real-time collaborative editing
+// TODO: Create notification system for shared task updates
+
 export default function Home() {
   const [activeView, setActiveView] = useState("dashboard");
   const [isNewTaskDialogOpen, setIsNewTaskDialogOpen] = useState(false);

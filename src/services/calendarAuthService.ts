@@ -13,6 +13,8 @@ const GOOGLE_DISCOVERY_DOCS = [
 // Get current origin for redirect URI
 const REDIRECT_URI = window.location.origin;
 
+// TODO: Calendar integration (Google Calendar, Apple Calendar)
+
 // Service for Google Calendar OAuth and API operations
 export const googleCalendarService = {
   // Track authentication status

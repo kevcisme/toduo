@@ -19,6 +19,10 @@ import {
   Tag
 } from '../db/models';
 
+// TODO: Improve offline conflict resolution for cloud sync
+// TODO: Add data export/import functionality
+// TODO: Implement end-to-end encryption for cloud data
+
 // Task service
 export const taskService = {
   createTask: (title: string, description?: string) => {

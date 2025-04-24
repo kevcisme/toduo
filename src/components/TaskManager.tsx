@@ -721,3 +721,7 @@ const TaskManager = ({
 };
 
 export default TaskManager;
+
+// TODO: Implement drag-and-drop for task reordering
+// TODO: Add support for nested tasks and subtasks
+// TODO: Create custom lists/categories for better organization
