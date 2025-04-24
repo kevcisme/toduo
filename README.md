@@ -1,8 +1,12 @@
 # Toduo
 
-> **The task management app that works the way your brain does.** Toduo combines the best of todo lists and task management with a sleek, intuitive interface that helps you get things done - not just organize them.
+**The task management app that works the way your brain does.** Toduo combines the best of todo lists and task management with a sleek, intuitive interface that helps you get things done - not just organize them.
+Toduo connects to the applications you use for work and in your personal life to help you sift through all the noise. It uses AI to understand and generate action items, insight about your work, and prioritize what you need to get done. It's like an assistant who is everywhere you are. 
 
-Toduo is a full-stack, cross-platform task management application with local-first storage and optional cloud sync. Built with modern web technologies and available as both a web app and desktop application.
+We think of it like this: **tasks should find you, not the other way around** - Instead of manually creating tasks from emails or messages, our technology automatically identifies and extracts them for you, saving you time and mental energy.
+
+---
+Toduo is a full-stack, cross-platform task management application with local-first storage and optional cloud sync. IBuilt with modern web frameworks and available as both a web app and desktop application. Even better, it's open source. 
 
 ![Toduo App](./docs/dashboard.png)
 
@@ -13,6 +17,7 @@ Toduo is a full-stack, cross-platform task management application with local-fir
 - 🖥️ **Cross-platform** - Available as web app and desktop app (via Electron)
 - 🎨 **Modern UI** built with React, TypeScript, and Tailwind CSS
 - 🔒 **Secure** - Your data belongs to you
+- 💪  **Turning information overload into actionable tasks** - We use smart technology to scan through all the places where your work lives—emails, meetings, chats—and automatically create organized to-do lists so nothing falls through the cracks.
 
 ## Getting Started
 
