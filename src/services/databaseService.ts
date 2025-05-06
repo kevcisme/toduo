@@ -10,6 +10,16 @@ import {
   noteTagOperations,
   kanbanCardTagOperations,
   calendarEventTagOperations,
+  canvasOperations,
+  canvasItemOperations,
+  documentCanvasItemOperations,
+  urlCanvasItemOperations,
+  taskCanvasItemOperations,
+  noteCanvasItemOperations,
+  eventCanvasItemOperations,
+  canvasChatOperations,
+  canvasChatMessageOperations,
+  canvasChatReferenceOperations,
   Task,
   Note,
   KanbanBoard,
@@ -17,6 +27,16 @@ import {
   KanbanCard,
   CalendarEvent,
   Tag,
+  Canvas,
+  CanvasItem,
+  DocumentCanvasItem,
+  UrlCanvasItem,
+  TaskCanvasItem,
+  NoteCanvasItem,
+  EventCanvasItem,
+  CanvasChat,
+  CanvasChatMessage,
+  CanvasChatReference,
 } from "../db/models";
 import {
   indexNote,
@@ -29,6 +49,7 @@ import {
 // TODO: Implement end-to-end encryption for cloud data
 // TODO: Update database operations to support storing integration/source metadata with tasks
 // TODO: Sync integration connection state and tokens with local database
+// TODO: Implement caching for canvas items to improve performance
 
 // Task service
 export const taskService = {
@@ -268,5 +289,257 @@ export const tagService = {
 
   deleteTag: (id: number) => {
     return tagOperations.delete(id);
+  },
+};
+
+// Canvas service
+export const canvasService = {
+  // Canvas operations
+  createCanvas: (id: string, name: string, description?: string) => {
+    return canvasOperations.create(id, name, description);
+  },
+
+  getAllCanvases: () => {
+    return canvasOperations.getAll();
+  },
+
+  getCanvasById: (id: string) => {
+    return canvasOperations.getById(id);
+  },
+
+  updateCanvas: (id: string, updates: Partial<Canvas>) => {
+    return canvasOperations.update(id, updates);
+  },
+
+  deleteCanvas: (id: string) => {
+    return canvasOperations.delete(id);
+  },
+
+  // Canvas item operations
+  createCanvasItem: (item: CanvasItem) => {
+    return canvasItemOperations.create(item);
+  },
+
+  getCanvasItemsByCanvasId: (canvasId: string) => {
+    return canvasItemOperations.getByCanvasId(canvasId);
+  },
+
+  getCanvasItemById: (id: string) => {
+    return canvasItemOperations.getById(id);
+  },
+
+  updateCanvasItem: (id: string, updates: Partial<CanvasItem>) => {
+    return canvasItemOperations.update(id, updates);
+  },
+
+  deleteCanvasItem: (id: string) => {
+    return canvasItemOperations.delete(id);
+  },
+
+  // Document canvas item operations
+  createDocumentCanvasItem: (itemId: string, documentId: string) => {
+    return documentCanvasItemOperations.create(itemId, documentId);
+  },
+
+  getDocumentCanvasItemByItemId: (itemId: string) => {
+    return documentCanvasItemOperations.getByItemId(itemId);
+  },
+
+  deleteDocumentCanvasItem: (itemId: string) => {
+    return documentCanvasItemOperations.delete(itemId);
+  },
+
+  // URL canvas item operations
+  createUrlCanvasItem: (
+    itemId: string,
+    url: string,
+    favicon?: string,
+    description?: string,
+    previewImage?: string,
+    extractedText?: string,
+  ) => {
+    return urlCanvasItemOperations.create(
+      itemId,
+      url,
+      favicon,
+      description,
+      previewImage,
+      extractedText,
+    );
+  },
+
+  getUrlCanvasItemByItemId: (itemId: string) => {
+    return urlCanvasItemOperations.getByItemId(itemId);
+  },
+
+  updateUrlCanvasItem: (itemId: string, updates: Partial<UrlCanvasItem>) => {
+    return urlCanvasItemOperations.update(itemId, updates);
+  },
+
+  deleteUrlCanvasItem: (itemId: string) => {
+    return urlCanvasItemOperations.delete(itemId);
+  },
+
+  // Task canvas item operations
+  createTaskCanvasItem: (itemId: string, taskId: number) => {
+    return taskCanvasItemOperations.create(itemId, taskId);
+  },
+
+  getTaskCanvasItemByItemId: (itemId: string) => {
+    return taskCanvasItemOperations.getByItemId(itemId);
+  },
+
+  deleteTaskCanvasItem: (itemId: string) => {
+    return taskCanvasItemOperations.delete(itemId);
+  },
+
+  // Note canvas item operations
+  createNoteCanvasItem: (itemId: string, noteId: number) => {
+    return noteCanvasItemOperations.create(itemId, noteId);
+  },
+
+  getNoteCanvasItemByItemId: (itemId: string) => {
+    return noteCanvasItemOperations.getByItemId(itemId);
+  },
+
+  deleteNoteCanvasItem: (itemId: string) => {
+    return noteCanvasItemOperations.delete(itemId);
+  },
+
+  // Event canvas item operations
+  createEventCanvasItem: (itemId: string, eventId: number) => {
+    return eventCanvasItemOperations.create(itemId, eventId);
+  },
+
+  getEventCanvasItemByItemId: (itemId: string) => {
+    return eventCanvasItemOperations.getByItemId(itemId);
+  },
+
+  deleteEventCanvasItem: (itemId: string) => {
+    return eventCanvasItemOperations.delete(itemId);
+  },
+
+  // Canvas chat operations
+  createCanvasChat: (id: string, canvasId: string) => {
+    return canvasChatOperations.create(id, canvasId);
+  },
+
+  getCanvasChatByCanvasId: (canvasId: string) => {
+    return canvasChatOperations.getByCanvasId(canvasId);
+  },
+
+  deleteCanvasChat: (id: string) => {
+    return canvasChatOperations.delete(id);
+  },
+
+  // Canvas chat message operations
+  createCanvasChatMessage: (
+    id: string,
+    chatId: string,
+    role: "user" | "assistant",
+    content: string,
+  ) => {
+    return canvasChatMessageOperations.create(id, chatId, role, content);
+  },
+
+  getCanvasChatMessagesByChatId: (chatId: string) => {
+    return canvasChatMessageOperations.getByChatId(chatId);
+  },
+
+  deleteCanvasChatMessage: (id: string) => {
+    return canvasChatMessageOperations.delete(id);
+  },
+
+  // Canvas chat reference operations
+  createCanvasChatReference: (
+    id: string,
+    messageId: string,
+    itemId: string,
+    snippet: string,
+    relevanceScore?: number,
+  ) => {
+    return canvasChatReferenceOperations.create(
+      id,
+      messageId,
+      itemId,
+      snippet,
+      relevanceScore,
+    );
+  },
+
+  getCanvasChatReferencesByMessageId: (messageId: string) => {
+    return canvasChatReferenceOperations.getByMessageId(messageId);
+  },
+
+  deleteCanvasChatReference: (id: string) => {
+    return canvasChatReferenceOperations.delete(id);
+  },
+
+  // Helper methods for working with canvas items
+  getFullCanvasWithItems: async (canvasId: string) => {
+    const canvas = canvasOperations.getById(canvasId);
+    if (!canvas) return null;
+
+    const canvasItems = canvasItemOperations.getByCanvasId(canvasId);
+    const fullItems = [];
+
+    for (const item of canvasItems) {
+      let fullItem: any = {
+        ...item,
+        position: { x: item.position_x, y: item.position_y },
+        size: { width: item.width, height: item.height },
+      };
+
+      switch (item.type) {
+        case "document": {
+          const docItem = documentCanvasItemOperations.getByItemId(item.id);
+          if (docItem) {
+            fullItem.documentId = docItem.document_id;
+          }
+          break;
+        }
+        case "url": {
+          const urlItem = urlCanvasItemOperations.getByItemId(item.id);
+          if (urlItem) {
+            fullItem = { ...fullItem, ...urlItem };
+          }
+          break;
+        }
+        case "task": {
+          const taskItem = taskCanvasItemOperations.getByItemId(item.id);
+          if (taskItem) {
+            fullItem.taskId = taskItem.task_id;
+            const task = taskOperations.getById(taskItem.task_id);
+            if (task) fullItem.task = task;
+          }
+          break;
+        }
+        case "note": {
+          const noteItem = noteCanvasItemOperations.getByItemId(item.id);
+          if (noteItem) {
+            fullItem.noteId = noteItem.note_id;
+            const note = noteOperations.getById(noteItem.note_id);
+            if (note) fullItem.note = note;
+          }
+          break;
+        }
+        case "event": {
+          const eventItem = eventCanvasItemOperations.getByItemId(item.id);
+          if (eventItem) {
+            fullItem.eventId = eventItem.event_id;
+            const event = calendarEventOperations.getById(eventItem.event_id);
+            if (event) fullItem.event = event;
+          }
+          break;
+        }
+      }
+
+      fullItems.push(fullItem);
+    }
+
+    return {
+      ...canvas,
+      items: fullItems,
+    };
   },
 };

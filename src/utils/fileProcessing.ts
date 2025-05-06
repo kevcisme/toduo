@@ -99,6 +99,48 @@ export async function processFile(file: File): Promise<Document> {
 }
 
 /**
+ * Extract URL content and metadata
+ * @param url The URL to extract content from
+ * @returns A promise that resolves to an object with URL metadata and content
+ */
+export async function extractUrlContent(url: string): Promise<{
+  title: string;
+  description: string;
+  favicon?: string;
+  previewImage?: string;
+  extractedText?: string;
+}> {
+  try {
+    // In a real implementation, this would call a server API to fetch and parse the URL
+    // For now, we'll simulate it with a basic implementation
+
+    // Normalize the URL
+    const normalizedUrl = url.startsWith("http") ? url : `https://${url}`;
+
+    // Extract domain for basic metadata
+    const domain = new URL(normalizedUrl).hostname;
+    const title = domain.replace(/^www\./, "");
+
+    // Generate a favicon URL using Google's favicon service
+    const favicon = `https://www.google.com/s2/favicons?domain=${domain}`;
+
+    // Simulate a delay for the network request
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    return {
+      title: title,
+      description: `Content from ${title}`,
+      favicon,
+      previewImage: undefined, // In a real implementation, this would be extracted from the page's meta tags
+      extractedText: `This is simulated extracted text from ${normalizedUrl}. In a real implementation, this would contain the actual text content of the webpage.`,
+    };
+  } catch (error) {
+    console.error(`Error extracting content from URL ${url}:`, error);
+    throw error;
+  }
+}
+
+/**
  * Extract schedule data from text content
  * @param text The text content to extract schedule data from
  * @param fileName The name of the file (used for determining the type of schedule)
@@ -727,254 +769,251 @@ function generateDailyScheduleText(filename: string): string {
   ];
   const dayName = dayNames[today.getDay()];
 
-  let text = `Daily Schedule - ${dateFormatYYYYMMDD} ${dayName}\n\n`;
+  let text = `${dateFormatYYYYMMDD} ${dayName} - Daily Schedule\n\n`;
+  text += `Date: ${today.toLocaleDateString()}\n\n`;
   text += "Daily Big 3:\n";
-  text += "Big 1: Complete client presentation slides\n";
-  text += "Big 2: Review team's progress reports\n";
-  text += "Big 3: Finalize project timeline\n\n";
+  text += "Big 1: Complete project presentation\n";
+  text += "Big 2: Review quarterly reports\n";
+  text += "Big 3: Prepare for team meeting\n\n";
 
   text += "Morning:\n";
-  text += "☐ Eat breakfast\n";
-  text += "☐ Exercise\n";
-  text += "☐ Vitamins\n";
-  text += "☐ Meditate\n\n";
+  text += "☐ Check emails (8:00 AM)\n";
+  text += "☐ Team standup (9:30 AM)\n";
+  text += "☐ Review yesterday's progress\n\n";
 
   text += "Workday:\n";
-  text += "☐ Inbox zero\n";
-  text += "☐ Slack zero\n";
-  text += "☐ Review big 3\n";
-  text += "☐ Team standup (9:30 AM)\n";
-  text += "☐ Client call (11:00 AM)\n";
+  text += "☐ Client meeting (11:00 AM)\n";
   text += "☐ Lunch break (12:30 PM)\n";
-  text += "☐ Project planning (2:00 PM)\n";
-  text += "☐ Review documentation (3:30 PM)\n";
-  text += "☐ Wrap up daily tasks (4:30 PM)\n\n";
+  text += "☐ Work on project deliverables (2:00 PM)\n";
+  text += "☐ Review pull requests\n\n";
 
   text += "Evening:\n";
-  text += "☐ Dinner\n";
-  text += "☐ Review tomorrow's schedule\n";
-  text += "☐ Reading time\n";
-  text += "☐ Journal\n\n";
-
-  text += "Daily Tasks:\n";
-  text += "☐ Follow up with marketing team about campaign metrics\n";
-  text += "☐ Schedule interview with potential new hire\n";
-  text += "☐ Review budget proposal\n";
-  text += "☐ Prepare agenda for weekly team meeting\n";
-  text += "☐ Update project documentation\n";
+  text += "☐ Wrap up daily tasks\n";
+  text += "☐ Plan for tomorrow\n";
+  text += "☐ Exercise (6:30 PM)\n";
 
   return text;
-}
 
-/**
- * Generate sample task list text
- * @param filename The name of the file
- * @returns Sample task list text
- */
-function generateTaskListText(filename: string): string {
-  let text = `Task List\n\n`;
+  /**
+   * Generate sample task list text
+   * @param filename The name of the file
+   * @returns Sample task list text
+   */
+  function generateTaskListText(filename: string): string {
+    let text = "Task List\n\n";
 
-  text += "High Priority:\n";
-  text += "☐ Complete project proposal for client X\n";
-  text += "☐ Finalize Q3 budget planning\n";
-  text += "☐ Prepare for team offsite\n\n";
+    text += "High Priority:\n";
+    text += "☐ Complete project proposal\n";
+    text += "☐ Prepare presentation for client meeting\n";
+    text += "☐ Review quarterly financial reports\n\n";
 
-  text += "Medium Priority:\n";
-  text += "☐ Review team's progress reports\n";
-  text += "☐ Update project documentation\n";
-  text += "☐ Schedule interview with potential new hire\n";
-  text += "☐ Follow up with marketing team about campaign metrics\n\n";
+    text += "Medium Priority:\n";
+    text += "☐ Update team documentation\n";
+    text += "☐ Schedule interviews for open position\n";
+    text += "☐ Research new tools for project management\n\n";
 
-  text += "Low Priority:\n";
-  text += "☐ Organize digital files\n";
-  text += "☐ Research new productivity tools\n";
-  text += "☐ Plan team building activity\n\n";
+    text += "Low Priority:\n";
+    text += "☐ Clean up old project files\n";
+    text += "☐ Organize digital assets\n";
+    text += "☐ Update personal development plan\n\n";
 
-  text += "Completed:\n";
-  text += "☑ Send weekly update to stakeholders\n";
-  text += "☑ Review and approve expense reports\n";
-  text += "☑ Attend department meeting\n";
+    text += "Action Items:\n";
+    text += "☐ Follow up with marketing team about campaign\n";
+    text += "☐ Send meeting notes to stakeholders\n";
+    text += "☐ Schedule next planning session\n";
 
-  return text;
-}
+    return text;
+  }
 
-/**
- * Generate sample note text
- * @param filename The name of the file
- * @returns Sample note text
- */
-function generateNoteText(filename: string): string {
-  let text = `Meeting Notes - Project Planning\n\n`;
+  /**
+   * Generate sample note text
+   * @param filename The name of the file
+   * @returns Sample note text
+   */
+  function generateNoteText(filename: string): string {
+    const today = new Date();
 
-  text += "Date: ${new Date().toLocaleDateString()}\n";
-  text += "Attendees: John, Sarah, Michael, Emily\n\n";
+    let text = "Meeting Notes\n\n";
+    text += `Date: ${today.toLocaleDateString()}\n\n`;
+    text += "Attendees: John Doe, Jane Smith, Alex Johnson\n\n";
 
-  text += "Agenda:\n";
-  text += "1. Project status update\n";
-  text += "2. Timeline review\n";
-  text += "3. Resource allocation\n";
-  text += "4. Next steps\n\n";
+    text += "Agenda:\n";
+    text += "1. Project Status Update\n";
+    text += "2. Budget Review\n";
+    text += "3. Timeline Adjustments\n";
+    text += "4. Open Discussion\n\n";
 
-  text += "Discussion Points:\n";
-  text += "- Current project is 70% complete, on track for delivery\n";
-  text += "- Need to address the delay in the design phase\n";
-  text += "- Additional resources required for testing phase\n";
-  text += "- Client has requested additional features\n\n";
+    text += "Discussion Points:\n";
+    text +=
+      "- Project is currently on track with minor delays in the design phase\n";
+    text +=
+      "- Budget is within expected parameters, but additional resources may be needed for testing\n";
+    text += "- Timeline needs adjustment due to upcoming holiday season\n";
+    text +=
+      "- Team raised concerns about integration with third-party services\n\n";
 
-  text += "Action Items:\n";
-  text += "☐ Sarah to provide updated design timeline by Friday\n";
-  text += "☐ Michael to assess resource needs for testing phase\n";
-  text += "☐ John to communicate with client about scope changes\n";
-  text += "☐ Emily to update project documentation\n\n";
+    text += "Action Items:\n";
+    text += "☐ John to provide updated design timeline by Friday\n";
+    text += "☐ Jane to prepare budget adjustment proposal\n";
+    text += "☐ Alex to contact third-party vendor about integration issues\n";
+    text += "☐ Schedule follow-up meeting for next week\n\n";
 
-  text += "Next Meeting: Next Monday, 10:00 AM\n";
+    text +=
+      "Next Meeting: " +
+      new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString();
 
-  return text;
-}
+    return text;
+  }
 
-/**
- * Generate generic schedule text with mixed content
- * @param filename The name of the file
- * @returns Generic schedule text with mixed content
- */
-function generateGenericScheduleText(filename: string): string {
-  const today = new Date();
-  const dateFormatted = today.toLocaleDateString();
+  /**
+   * Generate generic schedule text with mixed content
+   * @param filename The name of the file
+   * @returns Sample generic schedule text
+   */
+  function generateGenericScheduleText(filename: string): string {
+    const today = new Date();
 
-  let text = `Schedule and Tasks - ${dateFormatted}\n\n`;
+    let text = `Schedule for ${today.toLocaleDateString()}\n\n`;
 
-  // Mix of weekly and daily content
-  text += "Weekly Big 3:\n";
-  text += "Big 1: Complete project proposal for client\n";
-  text += "Big 2: Finalize Q3 budget planning\n";
-  text += "Big 3: Prepare for team offsite\n\n";
+    text += "Priority Tasks:\n";
+    text += "☐ Complete main project deliverable\n";
+    text += "☐ Prepare for client presentation\n";
+    text += "☐ Review team progress\n\n";
 
-  text += "Today's Schedule:\n";
-  text += "Morning:\n";
-  text += "☐ Team standup (9:30 AM)\n";
-  text += "☐ Client call (11:00 AM)\n\n";
+    text += "Schedule:\n";
+    text += "☐ Morning check-in (9:00 AM)\n";
+    text += "☐ Team meeting (10:30 AM)\n";
+    text += "☐ Lunch (12:00 PM)\n";
+    text += "☐ Client call (2:00 PM)\n";
+    text += "☐ Project work (3:00 PM - 5:00 PM)\n\n";
 
-  text += "Afternoon:\n";
-  text += "☐ Project planning (2:00 PM)\n";
-  text += "☐ Review documentation (3:30 PM)\n\n";
+    text += "Notes:\n";
+    text += "- Remember to discuss the new feature request\n";
+    text += "- Follow up on yesterday's action items\n";
+    text += "- Prepare questions for the client call\n";
 
-  text += "Tasks:\n";
-  text += "☐ Follow up with marketing team\n";
-  text += "☐ Schedule interview with potential new hire\n";
-  text += "☐ Review budget proposal\n";
-  text += "☐ Update project documentation\n";
+    return text;
+  }
 
-  return text;
-}
+  /**
+   * Get a sample daily task based on day and task index
+   * @param dayIndex The index of the day (0-6)
+   * @param taskIndex The index of the task (1-6)
+   * @returns A sample task description
+   */
+  function getDailyTask(dayIndex: number, taskIndex: number): string {
+    const tasks = [
+      // Day 1 tasks
+      [
+        "Review project requirements",
+        "Set up development environment",
+        "Create project timeline",
+        "Research competitors",
+        "Draft initial design concepts",
+        "Schedule kickoff meeting",
+      ],
+      // Day 2 tasks
+      [
+        "Finalize project scope",
+        "Create wireframes",
+        "Set up repository",
+        "Draft technical specifications",
+        "Meet with design team",
+        "Review resource allocation",
+      ],
+      // Day 3 tasks
+      [
+        "Begin development",
+        "Refine design mockups",
+        "Set up CI/CD pipeline",
+        "Create test plan",
+        "Update project documentation",
+        "Review progress with stakeholders",
+      ],
+      // Day 4 tasks
+      [
+        "Continue development",
+        "Start writing tests",
+        "Review design implementation",
+        "Update project board",
+        "Prepare for demo",
+        "Address feedback from stakeholders",
+      ],
+      // Day 5 tasks
+      [
+        "Complete core functionality",
+        "Run initial tests",
+        "Fix critical bugs",
+        "Prepare documentation",
+        "Review code quality",
+        "Update project status",
+      ],
+      // Day 6 tasks
+      [
+        "Finalize features",
+        "Complete testing",
+        "Prepare deployment plan",
+        "Create user guide",
+        "Final review with team",
+        "Address any remaining issues",
+      ],
+      // Day 7 tasks
+      [
+        "Deploy to staging",
+        "Conduct final testing",
+        "Prepare for launch",
+        "Create release notes",
+        "Brief support team",
+        "Plan post-launch monitoring",
+      ],
+    ];
 
-/**
- * Get a sample daily task based on day and task number
- * @param dayIndex The index of the day (0-6)
- * @param taskIndex The index of the task (1-6)
- * @returns A sample task description
- */
-function getDailyTask(dayIndex: number, taskIndex: number): string {
-  const tasks = [
-    // Day 1 tasks
-    [
-      "Review weekly goals",
-      "Prepare client presentation",
-      "Team check-in",
-      "Update project documentation",
-      "Schedule stakeholder meeting",
-      "Review budget proposal",
-    ],
-    // Day 2 tasks
-    [
-      "Client presentation",
-      "Follow up with marketing",
-      "Review team progress",
-      "Update project timeline",
-      "Prepare for tomorrow's meeting",
-      "Send status report",
-    ],
-    // Day 3 tasks
-    [
-      "Weekly team meeting",
-      "Project planning session",
-      "Review design mockups",
-      "Update stakeholders",
-      "Prepare training materials",
-      "Research new tools",
-    ],
-    // Day 4 tasks
-    [
-      "Mid-week review",
-      "Client feedback session",
-      "Update project roadmap",
-      "Team one-on-ones",
-      "Prepare monthly report",
-      "Review resource allocation",
-    ],
-    // Day 5 tasks
-    [
-      "Finalize deliverables",
-      "Team progress review",
-      "Client update call",
-      "Documentation review",
-      "Plan next week's priorities",
-      "Team feedback session",
-    ],
-    // Day 6 tasks
-    [
-      "Weekly wrap-up",
-      "Review accomplishments",
-      "Plan for next week",
-      "Send status report",
-      "Clean up inbox",
-      "Document lessons learned",
-    ],
-    // Day 7 tasks
-    [
-      "Weekly reflection",
-      "Review upcoming week",
-      "Personal development",
-      "Organize notes",
-      "Prepare for Monday",
-      "Set weekly goals",
-    ],
-  ];
+    // Ensure we have valid indices
+    const day = dayIndex % tasks.length;
+    const task = (taskIndex - 1) % tasks[day].length;
 
-  return tasks[dayIndex][taskIndex - 1] || "Generic task";
-}
+    return tasks[day][task];
+  }
 
-/**
- * Extract text from a Word document
- * Note: In a real implementation, this would use a Word document parsing library
- * @param file The Word document to extract text from
- * @returns A promise that resolves to the extracted text
- */
-async function extractTextFromWord(file: File): Promise<string> {
-  // In a real implementation, we would use a library for parsing Word documents
-  // For now, we'll return a placeholder message
-  return `[Word Document Text Extraction] This would extract text from the Word document: ${file.name}\n\nIn a production environment, this would use a specialized library to extract the actual text content.`;
-}
+  /**
+   * Extract text from a Word document
+   * @param file The Word document to extract text from
+   * @returns A promise that resolves to the extracted text
+   */
+  async function extractTextFromWord(file: File): Promise<string> {
+    // In a real implementation, we would use a library to parse Word documents
+    // For now, we'll simulate it with a basic implementation
+    return (
+      `This is simulated text extracted from the Word document: ${file.name}\n\n` +
+      "The actual implementation would use a library like mammoth.js to extract text from .docx files."
+    );
+  }
 
-/**
- * Extract text from an Excel spreadsheet
- * Note: In a real implementation, this would use an Excel parsing library
- * @param file The Excel file to extract text from
- * @returns A promise that resolves to the extracted text
- */
-async function extractTextFromExcel(file: File): Promise<string> {
-  // In a real implementation, we would use a library for parsing Excel files
-  // For now, we'll return a placeholder message
-  return `[Excel Text Extraction] This would extract text from the Excel file: ${file.name}\n\nIn a production environment, this would use a library like SheetJS to extract the actual cell contents.`;
-}
+  /**
+   * Extract text from an Excel spreadsheet
+   * @param file The Excel spreadsheet to extract text from
+   * @returns A promise that resolves to the extracted text
+   */
+  async function extractTextFromExcel(file: File): Promise<string> {
+    // In a real implementation, we would use a library to parse Excel files
+    // For now, we'll simulate it with a basic implementation
+    return (
+      `This is simulated text extracted from the Excel spreadsheet: ${file.name}\n\n` +
+      "The actual implementation would use a library like xlsx to extract data from Excel files."
+    );
+  }
 
-/**
- * Extract text from a PowerPoint presentation
- * Note: In a real implementation, this would use a PowerPoint parsing library
- * @param file The PowerPoint file to extract text from
- * @returns A promise that resolves to the extracted text
- */
-async function extractTextFromPowerPoint(file: File): Promise<string> {
-  // In a real implementation, we would use a library for parsing PowerPoint files
-  // For now, we'll return a placeholder message
-  return `[PowerPoint Text Extraction] This would extract text from the PowerPoint file: ${file.name}\n\nIn a production environment, this would use a specialized library to extract the actual text content from slides.`;
+  /**
+   * Extract text from a PowerPoint presentation
+   * @param file The PowerPoint presentation to extract text from
+   * @returns A promise that resolves to the extracted text
+   */
+  async function extractTextFromPowerPoint(file: File): Promise<string> {
+    // In a real implementation, we would use a library to parse PowerPoint files
+    // For now, we'll simulate it with a basic implementation
+    return (
+      `This is simulated text extracted from the PowerPoint presentation: ${file.name}\n\n` +
+      "The actual implementation would use a specialized library to extract text from PowerPoint files."
+    );
+  }
 }
