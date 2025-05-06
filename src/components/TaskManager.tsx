@@ -725,3 +725,5 @@ export default TaskManager;
 // TODO: Implement drag-and-drop for task reordering
 // TODO: Add support for nested tasks and subtasks
 // TODO: Create custom lists/categories for better organization
+// TODO: Handle and display tasks that originate from integrations (calendar, email, messaging)
+// TODO: Allow user actions (confirm, edit, dismiss) on suggested tasks from integrations

@@ -88,3 +88,5 @@ export function associateDocumentWithNote(
 export function getDocumentsByNoteId(noteId: string): Document[] {
   return documents.filter((doc) => doc.noteId === noteId);
 }
+
+// TODO: Add support for document/message integrations (e.g., email, Slack) for task extraction

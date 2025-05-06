@@ -430,3 +430,6 @@ export default Dashboard;
 // TODO: Optimize database queries for faster loading
 // TODO: Implement lazy loading for large task lists
 // TODO: Reduce Electron app memory footprint
+// TODO: Surface auto-extracted tasks from integrations in the dashboard
+// TODO: Visually distinguish tasks that were auto-extracted from integrations (e.g., badge, icon, or section)
+// TODO: Allow users to confirm, edit, or dismiss suggested tasks from integrations

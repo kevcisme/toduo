@@ -8,6 +8,7 @@ export interface Task {
   completed: boolean;
   created_at: string;
   updated_at: string;
+  // TODO: Extend Task model to include source/integration metadata (e.g., source type, source ID, integration name)
 }
 
 export interface Note {
@@ -436,4 +437,6 @@ export const calendarEventTagOperations = {
     `);
     return stmt.all(eventId) as Tag[];
   }
-}; 
+};
+
+// TODO: Add models and operations for managing integration connections and tokens 

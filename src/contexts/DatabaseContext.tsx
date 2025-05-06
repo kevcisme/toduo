@@ -65,4 +65,6 @@ export const useDatabase = () => {
     throw new Error('useDatabase must be used within a DatabaseProvider');
   }
   return context;
-}; 
+};
+
+// TODO: Provide integration connection state and actions via context for use in UI and services 

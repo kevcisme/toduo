@@ -15,6 +15,10 @@ const REDIRECT_URI = window.location.origin;
 
 // TODO: Calendar integration (Google Calendar, Apple Calendar)
 
+// TODO: Add OAuth2 authentication and token refresh for other integrations (Apple Calendar, Outlook, Slack, Gmail, etc.)
+// TODO: Implement webhook or polling support for integrations that support it (e.g., Slack, Google Calendar webhooks)
+// TODO: Refactor this service to expose a common interface for all calendar/message integrations
+
 // Service for Google Calendar OAuth and API operations
 export const googleCalendarService = {
   // Track authentication status

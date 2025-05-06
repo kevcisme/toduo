@@ -388,4 +388,7 @@ export const tagApi = {
     });
     return response.json();
   }
-}; 
+};
+
+// TODO: Add webhook endpoint handlers for integrations (e.g., Slack, Google Calendar push notifications)
+// TODO: Implement an event bus or queue to decouple integration event ingestion from task extraction/storage 

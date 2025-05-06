@@ -22,6 +22,8 @@ import {
 // TODO: Improve offline conflict resolution for cloud sync
 // TODO: Add data export/import functionality
 // TODO: Implement end-to-end encryption for cloud data
+// TODO: Update database operations to support storing integration/source metadata with tasks
+// TODO: Sync integration connection state and tokens with local database
 
 // Task service
 export const taskService = {
