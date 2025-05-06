@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Dashboard from "./Dashboard";
+import Canvas from "./Canvas";
 import { ResizablePanelGroup } from "@/components/ui/resizable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import {
   Menu,
   Settings,
   FileText,
+  Layers,
 } from "lucide-react";
 import NotesManager from "./NotesManager";
 import {
@@ -23,8 +25,14 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { taskApi } from '@/services/api';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { taskApi } from "@/services/api";
 
 // TODO: Implement keyboard shortcuts for power users
 // TODO: Design mobile-responsive layouts for all screen sizes
@@ -47,7 +55,7 @@ export default function Home() {
 
     try {
       await taskApi.create(newTask.title, newTask.description);
-      
+
       // Reset form and close dialog
       setNewTask({
         title: "",
@@ -56,9 +64,8 @@ export default function Home() {
         dueDate: null,
       });
       setIsNewTaskDialogOpen(false);
-      
+
       // You might need to add code here to refresh your task list
-      
     } catch (error) {
       console.error("Error adding task:", error);
     }
@@ -115,6 +122,14 @@ export default function Home() {
             <FileText className="h-5 w-5 mr-2" />
             <span className="hidden md:inline">Notes</span>
           </Button>
+          <Button
+            variant={activeView === "canvas" ? "default" : "ghost"}
+            className="w-full justify-start"
+            onClick={() => setActiveView("canvas")}
+          >
+            <Layers className="h-5 w-5 mr-2" />
+            <span className="hidden md:inline">Canvas</span>
+          </Button>
         </nav>
         <div className="p-4 border-t">
           <Button variant="ghost" className="w-full justify-start">
@@ -134,6 +149,7 @@ export default function Home() {
             {activeView === "calendar" && "Calendar"}
             {activeView === "kanban" && "Kanban Board"}
             {activeView === "notes" && "Notes"}
+            {activeView === "canvas" && "Canvas"}
           </h2>
           <div className="flex items-center space-x-2">
             <Button size="sm" onClick={() => setIsNewTaskDialogOpen(true)}>
@@ -144,7 +160,10 @@ export default function Home() {
         </header>
 
         {/* New Task Dialog */}
-        <Dialog open={isNewTaskDialogOpen} onOpenChange={setIsNewTaskDialogOpen}>
+        <Dialog
+          open={isNewTaskDialogOpen}
+          onOpenChange={setIsNewTaskDialogOpen}
+        >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Add New Task</DialogTitle>
@@ -155,7 +174,9 @@ export default function Home() {
                 <Input
                   id="title"
                   value={newTask.title}
-                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                  onChange={(e) =>
+                    setNewTask({ ...newTask, title: e.target.value })
+                  }
                   placeholder="Task title"
                 />
               </div>
@@ -164,7 +185,9 @@ export default function Home() {
                 <Textarea
                   id="description"
                   value={newTask.description}
-                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                  onChange={(e) =>
+                    setNewTask({ ...newTask, description: e.target.value })
+                  }
                   placeholder="Task description"
                 />
               </div>
@@ -172,10 +195,12 @@ export default function Home() {
                 <Label htmlFor="priority">Priority</Label>
                 <Select
                   value={newTask.priority}
-                  onValueChange={(value) => setNewTask({
-                    ...newTask,
-                    priority: value,
-                  })}
+                  onValueChange={(value) =>
+                    setNewTask({
+                      ...newTask,
+                      priority: value,
+                    })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select priority" />
@@ -193,10 +218,12 @@ export default function Home() {
                   id="dueDate"
                   type="date"
                   value={newTask.dueDate || ""}
-                  onChange={(e) => setNewTask({
-                    ...newTask,
-                    dueDate: e.target.value || null,
-                  })}
+                  onChange={(e) =>
+                    setNewTask({
+                      ...newTask,
+                      dueDate: e.target.value || null,
+                    })
+                  }
                 />
               </div>
             </div>
@@ -326,6 +353,12 @@ export default function Home() {
               <div className="h-[calc(100%-3rem)]">
                 <NotesManager />
               </div>
+            </div>
+          )}
+
+          {activeView === "canvas" && (
+            <div className="h-full">
+              <Canvas />
             </div>
           )}
         </main>
