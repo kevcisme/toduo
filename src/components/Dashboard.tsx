@@ -19,6 +19,9 @@ import NotesManager from "./NotesManager";
 import MetricCard from "./dashboard/MetricCard";
 import QuoteCard from "./dashboard/QuoteCard";
 import RemindersList, { Reminder } from "./dashboard/RemindersList";
+import HackerNewsWidget from "@/components/widgets/HackerNewsWidget";
+import YouTubeWidget from "@/components/widgets/YouTubeWidget";
+import RSSFeedWidget from "@/components/widgets/RSSFeedWidget";
 import {
   Menu,
   LayoutDashboard,
@@ -286,95 +289,13 @@ const Dashboard = ({
               </div>
             </div>
 
-            {/* Components Section */}
-            <h2 className="text-xl font-semibold mb-4">Your Workspace</h2>
-            <DragDropContextWrapper onDragEnd={handleDragEnd}>
-              <DroppableWrapper
-                droppableId="dashboard-components"
-                direction="vertical"
-              >
-                {(provided) => (
-                  <div
-                    {...provided.droppableProps}
-                    ref={provided.innerRef}
-                    className="space-y-4"
-                  >
-                    <ResizablePanelGroup
-                      direction="vertical"
-                      className="min-h-[600px]"
-                    >
-                      {layout.map(
-                        (item, index) =>
-                          item.visible && (
-                            <React.Fragment key={item.id}>
-                              {index > 0 && <ResizableHandle withHandle />}
-                              <ResizablePanel
-                                defaultSize={
-                                  100 / layout.filter((i) => i.visible).length
-                                }
-                              >
-                                <DraggableWrapper draggableId={item.id} index={index}>
-                                  {(provided) => (
-                                    <div
-                                      ref={provided.innerRef}
-                                      {...provided.draggableProps}
-                                    >
-                                      <Card className="h-full">
-                                        <div
-                                          className="p-4 border-b flex items-center justify-between"
-                                          {...provided.dragHandleProps}
-                                        >
-                                          <h2 className="text-lg font-semibold">
-                                            {item.title}
-                                          </h2>
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() =>
-                                              toggleComponentVisibility(item.id)
-                                            }
-                                          >
-                                            Hide
-                                          </Button>
-                                        </div>
-                                        <CardContent className="p-0 h-[calc(100%-57px)]">
-                                          <item.component />
-                                        </CardContent>
-                                      </Card>
-                                    </div>
-                                  )}
-                                </DraggableWrapper>
-                              </ResizablePanel>
-                            </React.Fragment>
-                          ),
-                      )}
-                    </ResizablePanelGroup>
-                    {provided.placeholder}
-                  </div>
-                )}
-              </DroppableWrapper>
-            </DragDropContextWrapper>
-
-            {layout.some((item) => !item.visible) && (
-              <div className="mt-4">
-                <h3 className="text-md font-medium mb-2">Hidden Components</h3>
-                <div className="flex space-x-2">
-                  {layout.map(
-                    (item) =>
-                      !item.visible && (
-                        <Button
-                          key={item.id}
-                          variant="outline"
-                          size="sm"
-                          onClick={() => toggleComponentVisibility(item.id)}
-                        >
-                          Show {item.title}
-                        </Button>
-                      ),
-                  )}
-                </div>
-              </div>
-            )}
+            {/* Featured Widgets */}
+            <h2 className="text-xl font-semibold mb-4">Featured Widgets</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <HackerNewsWidget />
+              <YouTubeWidget />
+              <RSSFeedWidget />
+            </div>
           </div>
         )}
 

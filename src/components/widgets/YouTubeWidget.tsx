@@ -12,7 +12,7 @@ interface Video {
 }
 
 const YouTubeWidget: React.FC = () => {
-  const apiKey = process.env.REACT_APP_YOUTUBE_API_KEY;
+  const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
   const channels: Channel[] = [
     { id: "UCXuqSBlHAE6Xw-yeJA0Tunw", title: "Linus Tech Tips" },
     { id: "UCR-DXc1voovS8nhAvccRZhg", title: "Jeff Geerling" },

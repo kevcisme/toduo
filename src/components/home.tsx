@@ -11,14 +11,8 @@ import {
   Menu,
   Settings,
   FileText,
-  Rss,
-  Youtube,
-  Activity,
 } from "lucide-react";
 import NotesManager from "./NotesManager";
-import HackerNewsWidget from "./widgets/HackerNewsWidget";
-import RSSFeedWidget from "./widgets/RSSFeedWidget";
-import YouTubeWidget from "./widgets/YouTubeWidget";
 import {
   Dialog,
   DialogContent,
@@ -121,7 +115,6 @@ export default function Home() {
             <FileText className="h-5 w-5 mr-2" />
             <span className="hidden md:inline">Notes</span>
           </Button>
-          <Button
         </nav>
         <div className="p-4 border-t">
           <Button variant="ghost" className="w-full justify-start">
