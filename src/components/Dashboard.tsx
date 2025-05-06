@@ -20,7 +20,7 @@ import MetricCard from "./dashboard/MetricCard";
 import QuoteCard from "./dashboard/QuoteCard";
 import RemindersList, { Reminder } from "./dashboard/RemindersList";
 import HackerNewsWidget from "@/components/widgets/HackerNewsWidget";
-import YouTubeWidget from "@/components/widgets/YouTubeWidget";
+// import YouTubeWidget from "@/components/widgets/YouTubeWidget";
 import RSSFeedWidget from "@/components/widgets/RSSFeedWidget";
 import {
   Menu,
@@ -293,7 +293,7 @@ const Dashboard = ({
             <h2 className="text-xl font-semibold mb-4">Featured Widgets</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <HackerNewsWidget />
-              <YouTubeWidget />
+              {/* <YouTubeWidget /> */}
               <RSSFeedWidget />
             </div>
           </div>
