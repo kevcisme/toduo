@@ -22,6 +22,7 @@ import RemindersList, { Reminder } from "./dashboard/RemindersList";
 import HackerNewsWidget from "@/components/widgets/HackerNewsWidget";
 // import YouTubeWidget from "@/components/widgets/YouTubeWidget";
 import RSSFeedWidget from "@/components/widgets/RSSFeedWidget";
+import RAGSearch from "@/components/dashboard/RAGSearch";
 import {
   Menu,
   LayoutDashboard,
@@ -165,9 +166,7 @@ const Dashboard = ({
           className={`${sidebarCollapsed ? "w-16" : "w-64"} bg-card border-r transition-all duration-300 flex flex-col`}
         >
           <div className="p-4 flex items-center justify-between border-b">
-            {!sidebarCollapsed && (
-              <h2 className="text-xl font-bold">Toduo</h2>
-            )}
+            {!sidebarCollapsed && <h2 className="text-xl font-bold">Toduo</h2>}
             <Button variant="ghost" size="icon" onClick={toggleSidebar}>
               <PanelLeft className="h-5 w-5" />
             </Button>
@@ -295,6 +294,7 @@ const Dashboard = ({
               <HackerNewsWidget />
               {/* <YouTubeWidget /> */}
               <RSSFeedWidget />
+              <RAGSearch />
             </div>
           </div>
         )}
