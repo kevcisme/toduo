@@ -1,7 +1,8 @@
 import { taskService, noteService, kanbanService, calendarService, tagService } from './databaseService';
 import { Task, Note, KanbanBoard, KanbanColumn, KanbanCard, CalendarEvent, Tag } from '../db/models';
 
-const API_BASE_URL = 'http://localhost:3000/api';
+// Use relative '/api' so that Vite's dev server proxy handles routing to backend
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 // Task API
 export const taskApi = {

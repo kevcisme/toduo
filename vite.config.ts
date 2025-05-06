@@ -22,5 +22,12 @@ export default defineConfig({
   server: {
     // @ts-ignore
     allowedHosts: true,
+    // Proxy all `/api` requests to backend server at port 3000
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+    },
   }
 });

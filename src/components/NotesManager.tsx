@@ -40,7 +40,6 @@ import {
 } from "@/services/documentService";
 import { useDatabase } from "../contexts/DatabaseContext";
 import { Note as DBNote, Tag as DBTag } from "../db/models";
-import { saveNewNoteFile, updateNoteFile } from '@/services/fileService';
 
 interface NotesManagerProps {
   className?: string;
@@ -87,51 +86,31 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
   // State for inline new note creation
   const [isCreatingNew, setIsCreatingNew] = useState(false);
 
-  // Get all tasks from schedule data
-  const getAllScheduleTasks = (): DailyTask[] => {
-    if (!scheduleData) return [];
-
-    const tasks: DailyTask[] = [];
-
-    // Add tasks from daily entries
-    Object.values(scheduleData.dailyEntries).forEach((entry) => {
-      tasks.push(...entry.tasks);
-    });
-
-    // Add unfinished tasks from weekly data
-    if (scheduleData.weekly?.unfinishedTasks) {
-      tasks.push(...scheduleData.weekly.unfinishedTasks);
+  // Function to load notes from server and update state
+  const loadNotesFromApi = async () => {
+    try {
+      const loadedNotes = await noteApi.getAll();
+      const uiNotes = loadedNotes.map(dbNote => ({
+        id: dbNote.id.toString(),
+        title: dbNote.title,
+        content: dbNote.content || "",
+        createdAt: new Date(dbNote.created_at),
+        updatedAt: new Date(dbNote.updated_at),
+        tags: [],
+        linkedTaskIds: [],
+        linkedEventIds: [],
+        filePath: (dbNote as any).filePath,
+      }));
+      // Only update notes here; leave filteredNotes to be set in the filter effect
+      setNotes(uiNotes);
+    } catch (error) {
+      console.error('Error loading notes:', error);
     }
-
-    return tasks;
   };
 
-  // Load notes from database
+  // Restore initial load effect to only run once (APIs):
   useEffect(() => {
-    const loadNotes = async () => {
-      try {
-        const loadedNotes = await noteApi.getAll();
-        setDbNotes(loadedNotes);
-        
-        // Convert DB notes to UI notes
-        const uiNotes = loadedNotes.map(dbNote => ({
-          id: dbNote.id.toString(),
-          title: dbNote.title,
-          content: dbNote.content || "",
-          createdAt: new Date(dbNote.created_at),
-          updatedAt: new Date(dbNote.updated_at),
-          tags: [],
-          linkedTaskIds: [],
-          linkedEventIds: [],
-        }));
-        
-        setNotes(uiNotes);
-        setFilteredNotes(uiNotes);
-      } catch (error) {
-        console.error("Error loading notes:", error);
-      }
-    };
-    
+    loadNotesFromApi();
     const loadTags = async () => {
       try {
         const loadedTags = await tagService.getAllTags();
@@ -140,8 +119,6 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
         console.error("Error loading tags:", error);
       }
     };
-    
-    loadNotes();
     loadTags();
   }, [noteApi, tagService]);
 
@@ -199,12 +176,15 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
 
   // --- Note CRUD ---
   const handleAddNote = async (
-    noteData: Omit<Note, "id" | "createdAt" | "updatedAt">,
+    noteData: Omit<Note, "id" | "createdAt" | "updatedAt">
   ) => {
     try {
-      // Save note as markdown file in vault
-      const filePath = await saveNewNoteFile(noteData.title, noteData.content);
-      // Add note to database
+      const saveRes = await fetch('/api/vault/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: noteData.title, content: noteData.content }),
+      });
+      const { filePath } = await saveRes.json();
       const result = await noteApi.create(noteData.title, noteData.content);
       const dbNote = await noteApi.getNoteById(result.lastInsertRowid as number);
       if (dbNote) {
@@ -219,16 +199,11 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
           linkedTaskIds: [],
           linkedEventIds: [],
         };
-        setNotes([uiNote, ...notes]);
-        setFilteredNotes([uiNote, ...filteredNotes]);
-        handleOpenNote(uiNote);
+        setNotes((prev) => [uiNote, ...prev]);
         setIsCreatingNew(false);
+        handleOpenNote(uiNote);
       }
-      setNewNote({
-        title: "",
-        content: "",
-        tags: [],
-      });
+      setNewNote({ title: "", content: "", tags: [] });
     } catch (error) {
       console.error("Error adding note:", error);
     }
@@ -241,13 +216,13 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
     const selectedNote = openNotes.find((n) => n.id === activeNoteId);
     if (!selectedNote) return;
     try {
-      // Update or create markdown file
-      let filePath = selectedNote.filePath;
-      if (filePath) {
-        filePath = await updateNoteFile(filePath, noteData.title, noteData.content);
-      } else {
-        filePath = await saveNewNoteFile(noteData.title, noteData.content);
-      }
+      // Update markdown file via server API
+      const updateRes = await fetch('/api/vault/update', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filePath: selectedNote.filePath, title: noteData.title, content: noteData.content }),
+      });
+      const { filePath } = await updateRes.json();
       // Update note in database
       await noteApi.updateNote(parseInt(selectedNote.id), {
         title: noteData.title,
@@ -266,9 +241,8 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
       setOpenNotes((prev) =>
         prev.map((note) => (note.id === selectedNote.id ? updatedNote : note))
       );
-      setFilteredNotes((prev) =>
-        prev.map((note) => (note.id === selectedNote.id ? updatedNote : note))
-      );
+      // Refresh to ensure sidebar sync
+      await loadNotesFromApi();
     } catch (error) {
       console.error("Error updating note:", error);
     }
@@ -278,13 +252,14 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
     try {
       await noteApi.deleteNote(parseInt(id));
       setNotes((prev) => prev.filter((note) => note.id !== id));
-      setFilteredNotes((prev) => prev.filter((note) => note.id !== id));
       setOpenNotes((prev) => prev.filter((note) => note.id !== id));
       if (activeNoteId === id) {
         const idx = openNotes.findIndex((n) => n.id === id);
         const next = openNotes[idx + 1] || openNotes[idx - 1] || null;
         setActiveNoteId(next?.id || null);
       }
+      // Refresh sidebar after deletion
+      await loadNotesFromApi();
     } catch (error) {
       console.error("Error deleting note:", error);
     }
