@@ -166,7 +166,16 @@ const Dashboard = ({
           className={`${sidebarCollapsed ? "w-16" : "w-64"} bg-card border-r transition-all duration-300 flex flex-col`}
         >
           <div className="p-4 flex items-center justify-between border-b">
-            {!sidebarCollapsed && <h2 className="text-xl font-bold">Toduo</h2>}
+            {!sidebarCollapsed && (
+              <div className="flex items-center">
+                <img
+                  src="https://github.com/kevcisme/toduo/blob/main/docs/logo.png?raw=true"
+                  alt="Toduo Logo"
+                  className="h-10 w-10 mr-2"
+                />
+                {/* <h2 className="text-xl font-bold">Toduo</h2> */}
+              </div>
+            )}
             <Button variant="ghost" size="icon" onClick={toggleSidebar}>
               <PanelLeft className="h-5 w-5" />
             </Button>
