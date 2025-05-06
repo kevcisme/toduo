@@ -79,6 +79,10 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
     useState<DailyEntry | null>(null);
   const [viewMode, setViewMode] = useState<"weekly" | "daily">("weekly");
 
+  // New state for tabbed pane
+  const [openNotes, setOpenNotes] = useState<Note[]>([]);
+  const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
+
   // Get all tasks from schedule data
   const getAllScheduleTasks = (): DailyTask[] => {
     if (!scheduleData) return [];
@@ -167,14 +171,34 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
 
   const allTags = Array.from(new Set(notes.flatMap((note) => note.tags || [])));
 
+  // --- Tabbed Pane Logic ---
+  const handleOpenNote = (note: Note) => {
+    setOpenNotes((prev) => {
+      if (prev.find((n) => n.id === note.id)) return prev;
+      return [...prev, note];
+    });
+    setActiveNoteId(note.id);
+  };
+
+  const handleCloseTab = (noteId: string) => {
+    setOpenNotes((prev) => prev.filter((n) => n.id !== noteId));
+    if (activeNoteId === noteId) {
+      const idx = openNotes.findIndex((n) => n.id === noteId);
+      const next = openNotes[idx + 1] || openNotes[idx - 1] || null;
+      setActiveNoteId(next?.id || null);
+    }
+  };
+
+  const handleTabClick = (noteId: string) => {
+    setActiveNoteId(noteId);
+  };
+
+  // --- Note CRUD ---
   const handleAddNote = async (
-    noteData: Omit<Note, "id" | "createdAt" | "updatedAt">,
+    noteData: Omit<Note, "id" | "createdAt" | "updatedAt">
   ) => {
     try {
-      // Add note to database
       const result = await noteApi.create(noteData.title, noteData.content);
-      
-      // Create UI note from DB note
       const dbNote = await noteApi.getNoteById(result.lastInsertRowid as number);
       if (dbNote) {
         const uiNote: Note = {
@@ -187,55 +211,42 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
           linkedTaskIds: [],
           linkedEventIds: [],
         };
-        
         setNotes([uiNote, ...notes]);
         setFilteredNotes([uiNote, ...filteredNotes]);
+        handleOpenNote(uiNote);
       }
-      
-      setNewNote({
-        title: "",
-        content: "",
-        tags: [],
-      });
-      setIsAddNoteOpen(false);
+      setNewNote({ title: "", content: "", tags: [] });
     } catch (error) {
       console.error("Error adding note:", error);
     }
   };
 
   const handleUpdateNote = async (
-    noteData: Omit<Note, "id" | "createdAt" | "updatedAt">,
+    noteData: Omit<Note, "id" | "createdAt" | "updatedAt">
   ) => {
+    if (!activeNoteId) return;
+    const selectedNote = openNotes.find((n) => n.id === activeNoteId);
     if (!selectedNote) return;
-    
     try {
-      // Update note in database
       await noteApi.updateNote(parseInt(selectedNote.id), {
         title: noteData.title,
         content: noteData.content,
       });
-      
-      // Update UI
       const updatedNote: Note = {
         ...selectedNote,
         title: noteData.title,
         content: noteData.content,
         tags: noteData.tags || [],
       };
-      
-      const updatedNotes = notes.map((note) =>
-        note.id === selectedNote.id ? updatedNote : note
+      setNotes((prev) =>
+        prev.map((note) => (note.id === selectedNote.id ? updatedNote : note))
       );
-      
-      setNotes(updatedNotes);
-      setFilteredNotes(
-        updatedNotes.filter((note) =>
-          note.title.toLowerCase().includes(searchQuery.toLowerCase())
-        )
+      setOpenNotes((prev) =>
+        prev.map((note) => (note.id === selectedNote.id ? updatedNote : note))
       );
-      
-      setSelectedNote(null);
-      setIsEditNoteOpen(false);
+      setFilteredNotes((prev) =>
+        prev.map((note) => (note.id === selectedNote.id ? updatedNote : note))
+      );
     } catch (error) {
       console.error("Error updating note:", error);
     }
@@ -243,17 +254,15 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
 
   const handleDeleteNote = async (id: string) => {
     try {
-      // Delete note from database
       await noteApi.deleteNote(parseInt(id));
-      
-      // Update UI
-      const updatedNotes = notes.filter((note) => note.id !== id);
-      setNotes(updatedNotes);
-      setFilteredNotes(
-        updatedNotes.filter((note) =>
-          note.title.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-      );
+      setNotes((prev) => prev.filter((note) => note.id !== id));
+      setFilteredNotes((prev) => prev.filter((note) => note.id !== id));
+      setOpenNotes((prev) => prev.filter((note) => note.id !== id));
+      if (activeNoteId === id) {
+        const idx = openNotes.findIndex((n) => n.id === id);
+        const next = openNotes[idx + 1] || openNotes[idx - 1] || null;
+        setActiveNoteId(next?.id || null);
+      }
     } catch (error) {
       console.error("Error deleting note:", error);
     }
@@ -337,223 +346,158 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
   };
 
   return (
-    <Card className={`bg-white h-full flex flex-col ${className}`}>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-xl font-bold flex items-center justify-between">
-          <span>Notes</span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={toggleDocumentUpload}>
-              {showDocumentUpload ? "Hide Documents" : "Show Documents"}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleScheduleView}
-              className={showScheduleView ? "bg-primary/10" : ""}
-            >
-              <Calendar className="h-4 w-4 mr-2" />
-              {showScheduleView ? "Hide Schedule" : "Show Schedule"}
-            </Button>
+    <div className={`flex h-full ${className}`}> {/* Main flex container */}
+      {/* Sidebar */}
+      <div className="w-80 border-r flex flex-col bg-white h-full">
+        <div className="p-4 border-b">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xl font-bold">Notes</span>
             <NoteEditor
               onSave={handleAddNote}
-              availableTasks={getAllScheduleTasks()}
+              availableTasks={[]} // You can pass getAllScheduleTasks() if needed
+              trigger={
+                <Button size="sm" variant="outline">
+                  <PlusCircle className="h-4 w-4 mr-2" /> New Note
+                </Button>
+              }
             />
           </div>
-        </CardTitle>
-      </CardHeader>
-      <div className="px-6 py-2 flex flex-col sm:flex-row gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search notes..."
-            className="pl-8"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-      </div>
-
-      {showDocumentUpload && (
-        <div className="px-6 pb-4">
-          <DocumentUpload
-            onDocumentUpload={handleDocumentUpload}
-            onDocumentSelect={handleDocumentSelect}
-            documents={documents}
-            className="border rounded-lg"
-          />
-        </div>
-      )}
-
-      {showScheduleView && (
-        <div className="px-6 pb-4">
-          {viewMode === "weekly" ? (
-            <WeeklyView
-              weeklyData={scheduleData?.weekly}
-              onDaySelect={handleDaySelect}
-              className="border rounded-lg"
+          <div className="relative">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search notes..."
+              className="pl-8"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
-          ) : (
-            <DailyView
-              dailyEntry={selectedDailyEntry}
-              onDateChange={handleDateChange}
-              onBackToWeekly={handleBackToWeekly}
-              className="border rounded-lg"
-            />
-          )}
+          </div>
         </div>
-      )}
-      <div className="px-6 pb-2">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full h-auto flex flex-wrap">
-            <TabsTrigger value="all" className="flex-grow">
-              All Notes
-            </TabsTrigger>
-            <TabsTrigger value="linked" className="flex-grow">
-              Linked
-            </TabsTrigger>
-            <TabsTrigger value="unlinked" className="flex-grow">
-              Unlinked
-            </TabsTrigger>
-            {allTags.map((tag) => (
-              <TabsTrigger key={tag} value={tag} className="flex-grow">
-                {tag}
+        <div className="p-2 border-b">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="w-full h-auto flex flex-wrap">
+              <TabsTrigger value="all" className="flex-grow">
+                All Notes
               </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      </div>
-      <CardContent className="flex-1 overflow-auto pt-0">
-        <ScrollArea className="h-full">
-          <div className="space-y-2 mt-2">
-            {filteredNotes.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                No notes found. Create a new note to get started.
-              </div>
-            ) : (
-              filteredNotes.map((note) => (
-                <div
-                  key={note.id}
-                  className="p-3 border rounded-lg hover:bg-accent/10 cursor-pointer"
-                  onClick={() => {
-                    setSelectedNote(note);
-                    setViewNoteOpen(true);
-                  }}
-                >
-                  <div className="flex items-start justify-between">
-                    <h3 className="font-medium">{note.title}</h3>
-                    <div className="flex items-center gap-1">
-                      <NoteEditor
-                        note={note}
-                        onSave={handleUpdateNote}
-                        availableTasks={getAllScheduleTasks()}
-                        trigger={
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedNote(note);
-                            }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        }
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteNote(note.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                    {note.content}
-                  </p>
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {note.tags?.map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-xs">
-                        <Tag className="h-3 w-3 mr-1" />
-                        {tag}
-                      </Badge>
-                    ))}
-                    {(note.linkedTaskIds?.length ||
-                      note.linkedEventIds?.length) && (
-                      <Badge variant="secondary" className="text-xs">
-                        <Link className="h-3 w-3 mr-1" />
-                        {(note.linkedTaskIds?.length || 0) +
-                          (note.linkedEventIds?.length || 0)}{" "}
-                        links
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-2">
-                    Updated {note.updatedAt.toLocaleDateString()}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </ScrollArea>
-      </CardContent>
-      <CardFooter className="border-t pt-4">
-        <div className="text-sm text-muted-foreground">
-          {notes.length} notes total
+              <TabsTrigger value="linked" className="flex-grow">
+                Linked
+              </TabsTrigger>
+              <TabsTrigger value="unlinked" className="flex-grow">
+                Unlinked
+              </TabsTrigger>
+              {allTags.map((tag) => (
+                <TabsTrigger key={tag} value={tag} className="flex-grow">
+                  {tag}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
         </div>
-      </CardFooter>
-
-      {/* View Note Dialog */}
-      <Dialog open={viewNoteOpen} onOpenChange={setViewNoteOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          {selectedNote && (
-            <>
-              <DialogHeader>
-                <DialogTitle>{selectedNote.title}</DialogTitle>
-              </DialogHeader>
-              <div className="py-4">
-                <div className="whitespace-pre-wrap">
-                  {selectedNote.content}
-                </div>
-                {selectedNote.tags?.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-4">
-                    {selectedNote.tags.map((tag) => (
-                      <Badge key={tag} variant="outline">
-                        <Tag className="h-3 w-3 mr-1" />
-                        {tag}
-                      </Badge>
-                    ))}
+        <div className="flex-1 overflow-auto p-2">
+          {filteredNotes.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No notes found. Create a new note to get started.
+            </div>
+          ) : (
+            filteredNotes.map((note) => (
+              <div
+                key={note.id}
+                className="p-3 border rounded-lg hover:bg-accent/10 cursor-pointer mb-2"
+                onClick={() => handleOpenNote(note)}
+              >
+                <div className="flex items-start justify-between">
+                  <h3 className="font-medium">{note.title}</h3>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteNote(note.id);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
-                )}
-              </div>
-              <DialogFooter>
-                <div className="text-sm text-muted-foreground mr-auto">
-                  Created: {selectedNote.createdAt.toLocaleDateString()}
-                  {selectedNote.createdAt.getTime() !==
-                    selectedNote.updatedAt.getTime() && (
-                    <>
-                      {" "}
-                      · Updated: {selectedNote.updatedAt.toLocaleDateString()}
-                    </>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                  {note.content}
+                </p>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {note.tags?.map((tag) => (
+                    <Badge key={tag} variant="outline" className="text-xs">
+                      <Tag className="h-3 w-3 mr-1" />
+                      {tag}
+                    </Badge>
+                  ))}
+                  {(note.linkedTaskIds?.length || note.linkedEventIds?.length) && (
+                    <Badge variant="secondary" className="text-xs">
+                      <Link className="h-3 w-3 mr-1" />
+                      {(note.linkedTaskIds?.length || 0) +
+                        (note.linkedEventIds?.length || 0)}{" "}
+                      links
+                    </Badge>
                   )}
                 </div>
-                <NoteEditor
-                  note={selectedNote}
-                  onSave={handleUpdateNote}
-                  availableTasks={getAllScheduleTasks()}
-                  trigger={<Button>Edit</Button>}
-                />
-              </DialogFooter>
-            </>
+                <div className="text-xs text-muted-foreground mt-2">
+                  Updated {note.updatedAt.toLocaleDateString()}
+                </div>
+              </div>
+            ))
           )}
-        </DialogContent>
-      </Dialog>
-    </Card>
+        </div>
+        <div className="border-t p-2 text-sm text-muted-foreground">
+          {notes.length} notes total
+        </div>
+      </div>
+      {/* Tabbed Pane */}
+      <div className="flex-1 flex flex-col h-full bg-white">
+        {/* Tab Bar */}
+        <div className="flex border-b bg-muted min-h-[40px]">
+          {openNotes.length === 0 ? (
+            <div className="p-2 text-muted-foreground">No notes open</div>
+          ) : (
+            openNotes.map((note) => (
+              <div
+                key={note.id}
+                className={`px-4 py-2 cursor-pointer flex items-center border-r ${
+                  note.id === activeNoteId
+                    ? "bg-white border-t border-l border-r rounded-t font-bold"
+                    : "hover:bg-accent/10"
+                }`}
+                onClick={() => handleTabClick(note.id)}
+              >
+                <span className="mr-2 line-clamp-1 max-w-[120px]">{note.title}</span>
+                <button
+                  className="ml-1 text-xs text-muted-foreground hover:text-red-500"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCloseTab(note.id);
+                  }}
+                  title="Close tab"
+                >
+                  ×
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+        {/* Active Note Editor */}
+        <div className="flex-1 overflow-auto p-4">
+          {openNotes.length === 0 || !activeNoteId ? (
+            <div className="text-center text-muted-foreground mt-16">
+              Select a note from the sidebar to view or edit.
+            </div>
+          ) : (
+            <NoteEditor
+              note={openNotes.find((n) => n.id === activeNoteId)}
+              onSave={handleUpdateNote}
+              availableTasks={[]}
+            />
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 
