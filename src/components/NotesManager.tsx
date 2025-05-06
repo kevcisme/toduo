@@ -40,6 +40,7 @@ import {
 } from "@/services/documentService";
 import { useDatabase } from "../contexts/DatabaseContext";
 import { Note as DBNote, Tag as DBTag } from "../db/models";
+import { saveNewNoteFile, updateNoteFile } from '@/services/fileService';
 
 interface NotesManagerProps {
   className?: string;
@@ -82,6 +83,9 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
   // New state for tabbed pane
   const [openNotes, setOpenNotes] = useState<Note[]>([]);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
+
+  // State for inline new note creation
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
 
   // Get all tasks from schedule data
   const getAllScheduleTasks = (): DailyTask[] => {
@@ -195,9 +199,12 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
 
   // --- Note CRUD ---
   const handleAddNote = async (
-    noteData: Omit<Note, "id" | "createdAt" | "updatedAt">
+    noteData: Omit<Note, "id" | "createdAt" | "updatedAt">,
   ) => {
     try {
+      // Save note as markdown file in vault
+      const filePath = await saveNewNoteFile(noteData.title, noteData.content);
+      // Add note to database
       const result = await noteApi.create(noteData.title, noteData.content);
       const dbNote = await noteApi.getNoteById(result.lastInsertRowid as number);
       if (dbNote) {
@@ -207,6 +214,7 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
           content: dbNote.content || "",
           createdAt: new Date(dbNote.created_at),
           updatedAt: new Date(dbNote.updated_at),
+          filePath,
           tags: noteData.tags || [],
           linkedTaskIds: [],
           linkedEventIds: [],
@@ -214,8 +222,13 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
         setNotes([uiNote, ...notes]);
         setFilteredNotes([uiNote, ...filteredNotes]);
         handleOpenNote(uiNote);
+        setIsCreatingNew(false);
       }
-      setNewNote({ title: "", content: "", tags: [] });
+      setNewNote({
+        title: "",
+        content: "",
+        tags: [],
+      });
     } catch (error) {
       console.error("Error adding note:", error);
     }
@@ -228,6 +241,14 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
     const selectedNote = openNotes.find((n) => n.id === activeNoteId);
     if (!selectedNote) return;
     try {
+      // Update or create markdown file
+      let filePath = selectedNote.filePath;
+      if (filePath) {
+        filePath = await updateNoteFile(filePath, noteData.title, noteData.content);
+      } else {
+        filePath = await saveNewNoteFile(noteData.title, noteData.content);
+      }
+      // Update note in database
       await noteApi.updateNote(parseInt(selectedNote.id), {
         title: noteData.title,
         content: noteData.content,
@@ -237,6 +258,7 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
         title: noteData.title,
         content: noteData.content,
         tags: noteData.tags || [],
+        filePath,
       };
       setNotes((prev) =>
         prev.map((note) => (note.id === selectedNote.id ? updatedNote : note))
@@ -352,15 +374,9 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
         <div className="p-4 border-b">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xl font-bold">Notes</span>
-            <NoteEditor
-              onSave={handleAddNote}
-              availableTasks={[]} // You can pass getAllScheduleTasks() if needed
-              trigger={
-                <Button size="sm" variant="outline">
-                  <PlusCircle className="h-4 w-4 mr-2" /> New Note
-                </Button>
-              }
-            />
+            <Button size="sm" variant="outline" onClick={() => setIsCreatingNew(true)}>
+              <PlusCircle className="h-4 w-4 mr-2" /> New Note
+            </Button>
           </div>
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -454,46 +470,76 @@ const NotesManager: React.FC<NotesManagerProps> = ({ className = "" }) => {
       <div className="flex-1 flex flex-col h-full bg-white">
         {/* Tab Bar */}
         <div className="flex border-b bg-muted min-h-[40px]">
-          {openNotes.length === 0 ? (
-            <div className="p-2 text-muted-foreground">No notes open</div>
-          ) : (
-            openNotes.map((note) => (
-              <div
-                key={note.id}
-                className={`px-4 py-2 cursor-pointer flex items-center border-r ${
-                  note.id === activeNoteId
-                    ? "bg-white border-t border-l border-r rounded-t font-bold"
-                    : "hover:bg-accent/10"
-                }`}
-                onClick={() => handleTabClick(note.id)}
+          {isCreatingNew && (
+            <div
+              className={`px-4 py-2 cursor-pointer flex items-center border-r ${
+                activeNoteId === null
+                  ? "bg-white border-t border-l border-r rounded-t font-bold"
+                  : "hover:bg-accent/10"
+              }`}
+              onClick={() => setIsCreatingNew(true)}
+            >
+              <span className="mr-2">New Note</span>
+              <button
+                className="ml-1 text-xs text-muted-foreground hover:text-red-500"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsCreatingNew(false);
+                }}
+                title="Close"
               >
-                <span className="mr-2 line-clamp-1 max-w-[120px]">{note.title}</span>
-                <button
-                  className="ml-1 text-xs text-muted-foreground hover:text-red-500"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleCloseTab(note.id);
-                  }}
-                  title="Close tab"
-                >
-                  ×
-                </button>
-              </div>
-            ))
+                ×
+              </button>
+            </div>
+          )}
+          {openNotes.map((note) => (
+            <div
+              key={note.id}
+              className={`px-4 py-2 cursor-pointer flex items-center border-r ${
+                note.id === activeNoteId
+                  ? "bg-white border-t border-l border-r rounded-t font-bold"
+                  : "hover:bg-accent/10"
+              }`}
+              onClick={() => handleTabClick(note.id)}
+            >
+              <span className="mr-2 line-clamp-1 max-w-[120px]">{note.title}</span>
+              <button
+                className="ml-1 text-xs text-muted-foreground hover:text-red-500"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCloseTab(note.id);
+                }}
+                title="Close tab"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          {openNotes.length === 0 && !isCreatingNew && (
+            <div className="p-2 text-muted-foreground">No notes open</div>
           )}
         </div>
         {/* Active Note Editor */}
         <div className="flex-1 overflow-auto p-4">
-          {openNotes.length === 0 || !activeNoteId ? (
+          {isCreatingNew ? (
+            <NoteEditor
+              inline
+              onSave={handleAddNote}
+              onCancel={() => setIsCreatingNew(false)}
+              availableTasks={[]}
+            />
+          ) : activeNoteId ? (
+            <NoteEditor
+              inline
+              note={openNotes.find((n) => n.id === activeNoteId)}
+              onSave={handleUpdateNote}
+              onCancel={() => handleCloseTab(activeNoteId)}
+              availableTasks={[]}
+            />
+          ) : (
             <div className="text-center text-muted-foreground mt-16">
               Select a note from the sidebar to view or edit.
             </div>
-          ) : (
-            <NoteEditor
-              note={openNotes.find((n) => n.id === activeNoteId)}
-              onSave={handleUpdateNote}
-              availableTasks={[]}
-            />
           )}
         </div>
       </div>

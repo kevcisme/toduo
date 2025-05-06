@@ -34,6 +34,7 @@ export interface Note {
   content: string;
   createdAt: Date;
   updatedAt: Date;
+  filePath?: string;
   linkedTaskIds?: string[];
   linkedEventIds?: string[];
   linkedDocumentIds?: string[];
@@ -48,15 +49,19 @@ interface NoteEditorProps {
   title?: string;
   availableDocuments?: Document[];
   availableTasks?: DailyTask[];
+  onCancel?: () => void;
+  inline?: boolean;
 }
 
 const NoteEditor: React.FC<NoteEditorProps> = ({
   note,
   onSave,
+  onCancel,
   trigger,
   title = note ? "Edit Note" : "Create Note",
   availableDocuments = [],
   availableTasks = [],
+  inline = false,
 }) => {
   const [noteData, setNoteData] = useState<
     Omit<Note, "id" | "createdAt" | "updatedAt">
@@ -190,6 +195,138 @@ const NoteEditor: React.FC<NoteEditorProps> = ({
   const isTaskLinked = (taskId: string) => {
     return noteData.linkedScheduleTaskIds?.includes(taskId) || false;
   };
+
+  // Inline mode rendering
+  if (inline) {
+    return (
+      <div className="flex flex-col h-full bg-white">
+        <div className="p-4 border-b">
+          <h2 className="text-xl font-bold">{title}</h2>
+        </div>
+        <div className="p-4 flex-1 overflow-auto">
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="title">Title</Label>
+              <Input
+                id="title"
+                value={noteData.title}
+                onChange={(e) =>
+                  setNoteData({ ...noteData, title: e.target.value })
+                }
+                placeholder="Note title"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="content">Content</Label>
+              <Textarea
+                id="content"
+                value={noteData.content}
+                onChange={(e) =>
+                  setNoteData({ ...noteData, content: e.target.value })
+                }
+                placeholder="Write your note here..."
+                className="min-h-[200px]"
+              />
+            </div>
+
+            {/* Linked Documents Section */}
+            <div className="grid gap-2">
+              <Label className="flex items-center gap-2">
+                <LinkIcon className="h-4 w-4" />
+                Linked Documents
+              </Label>
+              {documents.length === 0 ? (
+                <div className="text-sm text-muted-foreground p-2 border rounded-md">
+                  No documents available to link
+                </div>
+              ) : (
+                <ScrollArea className="h-[150px] border rounded-md p-2">
+                  <div className="space-y-2">
+                    {documents.map((doc) => (
+                      <div key={doc.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`doc-${doc.id}`}
+                          checked={isDocumentLinked(doc.id)}
+                          onCheckedChange={() => toggleDocumentLink(doc.id)}
+                        />
+                        <div className="flex items-center gap-2 flex-1">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          <Label
+                            htmlFor={`doc-${doc.id}`}
+                            className="text-sm font-normal cursor-pointer"
+                          >
+                            {doc.name}
+                          </Label>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          {doc.type.split("/")[1] || doc.type}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </div>
+
+            {/* Linked Tasks Section */}
+            <div className="grid gap-2">
+              <Label className="flex items-center gap-2">
+                <LinkIcon className="h-4 w-4" />
+                Linked Tasks
+              </Label>
+              {availableTasks.length === 0 ? (
+                <div className="text-sm text-muted-foreground p-2 border rounded-md">
+                  No tasks available to link
+                </div>
+              ) : (
+                <ScrollArea className="h-[150px] border rounded-md p-2">
+                  <div className="space-y-2">
+                    {availableTasks.map((task) => (
+                      <div key={task.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`task-${task.id}`}
+                          checked={isTaskLinked(task.id)}
+                          onCheckedChange={() => toggleTaskLink(task.id)}
+                        />
+                        <div className="flex items-center gap-2 flex-1">
+                          <div className="flex-1">
+                            <Label
+                              htmlFor={`task-${task.id}`}
+                              className="text-sm font-normal cursor-pointer"
+                            >
+                              {task.title}
+                            </Label>
+                            <div className="text-xs text-muted-foreground">
+                              {task.date.toLocaleDateString()}
+                              {task.category && ` • ${task.category}`}
+                            </div>
+                          </div>
+                        </div>
+                        <Badge
+                          variant={task.completed ? "secondary" : "outline"}
+                          className="text-xs"
+                        >
+                          {task.completed ? "Completed" : "Pending"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="p-4 flex justify-end space-x-2">
+          {onCancel && (
+            <Button variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
+          <Button onClick={handleSave}>Save Note</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
