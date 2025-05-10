@@ -169,7 +169,7 @@ const Dashboard = ({
             {!sidebarCollapsed && (
               <div className="flex items-center">
                 <img
-                  src="https://github.com/kevcisme/toduo/blob/main/docs/logo.png?raw=true"
+                  src="tuduo.png"
                   alt="Toduo Logo"
                   className="h-10 w-10 mr-2"
                 />

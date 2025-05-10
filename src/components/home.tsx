@@ -77,11 +77,11 @@ export default function Home() {
       <div className="w-16 md:w-64 h-full border-r bg-card flex flex-col">
         <div className="p-4 border-b flex items-center">
           <img
-            src="https://github.com/kevcisme/toduo/blob/main/docs/logo.png?raw=true"
+            src="tuduo.png"
             alt="Toduo Logo"
             className="h-20 w-20 mr-2"
           />
-          {/* <h1 className="text-xl font-bold hidden md:block">Toduo</h1> */}
+          <h1 className="text-xl font-bold hidden md:block">Toduo</h1>
           <Button variant="ghost" size="icon" className="md:hidden ml-auto">
             <Menu className="h-5 w-5" />
           </Button>
