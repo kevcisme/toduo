@@ -12,8 +12,10 @@ import {
 } from "./ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { useDatabase } from "../contexts/DatabaseContext";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { useTheme } from "../contexts/ThemeContext";
+import { AlertCircle, CheckCircle2, Moon, Sun } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+import { Switch } from "./ui/switch";
 
 interface SettingsProps {
   className?: string;
@@ -21,6 +23,7 @@ interface SettingsProps {
 
 const Settings: React.FC<SettingsProps> = ({ className = "" }) => {
   const { llmConfig, updateLlmConfig } = useDatabase();
+  const { theme, toggleTheme } = useTheme();
 
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [openaiModel, setOpenaiModel] = useState("text-embedding-ada-002");
@@ -157,10 +160,33 @@ const Settings: React.FC<SettingsProps> = ({ className = "" }) => {
               </p>
             </TabsContent>
 
-            <TabsContent value="general" className="mt-4">
-              <p className="text-muted-foreground">
-                General settings will be available in future updates.
-              </p>
+            <TabsContent value="general" className="mt-4 space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="theme-toggle">Dark Mode</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Toggle between light and dark theme
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Sun className="h-4 w-4" />
+                    <Switch
+                      id="theme-toggle"
+                      checked={theme === "dark"}
+                      onCheckedChange={toggleTheme}
+                    />
+                    <Moon className="h-4 w-4" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-muted-foreground">
+                  Additional general settings will be available in future
+                  updates.
+                </p>
+              </div>
             </TabsContent>
           </Tabs>
         </CardContent>

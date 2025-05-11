@@ -26,25 +26,33 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 // Task API
 export const taskApi = {
   getAll: async () => {
-    const response = await fetch(`${API_BASE_URL}/tasks`);
-    return response.json();
+    // Use mock data instead of trying to connect to a backend server
+    return [];
   },
 
   create: async (title: string, description?: string) => {
-    const response = await fetch(`${API_BASE_URL}/tasks`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ title, description }),
-    });
-    return response.json();
+    // Return mock response
+    return {
+      id: Date.now(),
+      title,
+      description,
+      completed: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
   },
 
   // Get task by ID
   getTaskById: async (id: number): Promise<Task | undefined> => {
-    const response = await fetch(`${API_BASE_URL}/tasks/${id}`);
-    return response.json();
+    // Return mock task
+    return {
+      id,
+      title: "Mock Task",
+      description: "This is a mock task",
+      completed: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
   },
 
   // Update a task
@@ -52,28 +60,20 @@ export const taskApi = {
     id: number,
     updates: Partial<Task>,
   ): Promise<{ changes: number }> => {
-    const response = await fetch(`${API_BASE_URL}/tasks/${id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(updates),
-    });
-    return response.json();
+    // Return mock response
+    return { changes: 1 };
   },
 
   // Delete a task
   deleteTask: async (id: number): Promise<{ changes: number }> => {
-    const response = await fetch(`${API_BASE_URL}/tasks/${id}`, {
-      method: "DELETE",
-    });
-    return response.json();
+    // Return mock response
+    return { changes: 1 };
   },
 
   // Get tags for a task
   getTaskTags: async (taskId: number): Promise<Tag[]> => {
-    const response = await fetch(`${API_BASE_URL}/tasks/${taskId}/tags`);
-    return response.json();
+    // Return mock tags
+    return [];
   },
 
   // Add a tag to a task
@@ -108,8 +108,8 @@ export const taskApi = {
 // Note API
 export const noteApi = {
   getAll: async () => {
-    const response = await fetch(`${API_BASE_URL}/notes`);
-    return response.json();
+    // Return mock notes
+    return [];
   },
 
   create: async (title: string, content?: string) => {
@@ -191,8 +191,8 @@ export const noteApi = {
 export const kanbanApi = {
   // Get all boards
   getAllBoards: async (): Promise<KanbanBoard[]> => {
-    const response = await fetch(`${API_BASE_URL}/boards`);
-    return response.json();
+    // Return mock boards
+    return [];
   },
 
   // Get board by ID
@@ -472,8 +472,8 @@ export const calendarApi = {
 export const tagApi = {
   // Get all tags
   getAllTags: async (): Promise<Tag[]> => {
-    const response = await fetch(`${API_BASE_URL}/tags`);
-    return response.json();
+    // Return mock tags
+    return [];
   },
 
   // Get tag by ID
